@@ -1,4 +1,6 @@
 import threading
+import uuid
+import warnings
 import atexit
 from datetime import datetime, timezone
 
@@ -18,18 +20,38 @@ class Run:
         self._lock = threading.Lock()
         self._timer: threading.Timer | None = None
         self._finished = False
+        self._offline = False
 
-        api.create_project(server, api_key, project)
-        result = api.create_run(server, api_key, project, run_id, name, config or {}, tags or [])
-        self.run_id = result["id"]
-        self.name = result["name"]
+        try:
+            api.create_project(server, api_key, project)
+            result = api.create_run(server, api_key, project, run_id, name, config or {}, tags or [])
+            self.run_id = result["id"]
+            self.name = result["name"]
+        except Exception as e:
+            warnings.warn(f"intern: server unreachable, entering offline mode ({e})")
+            self._offline = True
+            self.run_id = run_id or uuid.uuid4().hex[:8]
+            self.name = name or self.run_id
 
-        if self._buffer_size > 1:
+        if not self._offline and self._buffer_size > 1:
             self._start_flush_timer()
         atexit.register(self._cleanup)
 
+    def _go_offline(self, e: Exception):
+        if not self._offline:
+            warnings.warn(f"intern: network error, entering offline mode ({e})")
+            self._offline = True
+            if self._timer:
+                self._timer.cancel()
+                self._timer = None
+
     def define_metric(self, key: str, **kwargs):
-        api.define_metric(self.server, self.api_key, self.run_id, key, **kwargs)
+        if self._offline:
+            return
+        try:
+            api.define_metric(self.server, self.api_key, self.run_id, key, **kwargs)
+        except Exception as e:
+            self._go_offline(e)
 
     def log(self, data: dict, step: int | None = None):
         if step is None:
@@ -37,6 +59,8 @@ class Run:
             self._step += 1
         else:
             self._step = step + 1
+        if self._offline:
+            return
         now = datetime.now(timezone.utc).isoformat()
         with self._lock:
             for key, value in data.items():
@@ -47,6 +71,8 @@ class Run:
                 self._flush_locked()
 
     def log_text(self, content: str, level: str = "info", step: int | None = None):
+        if self._offline:
+            return
         now = datetime.now(timezone.utc).isoformat()
         with self._lock:
             self._log_buffer.append({
@@ -56,14 +82,19 @@ class Run:
                 self._flush_locked()
 
     def _flush_locked(self):
-        if self._metric_buffer:
-            points = list(self._metric_buffer)
-            self._metric_buffer.clear()
-            api.send_metrics(self.server, self.api_key, self.run_id, points)
-        if self._log_buffer:
-            entries = list(self._log_buffer)
-            self._log_buffer.clear()
-            api.send_logs(self.server, self.api_key, self.run_id, entries)
+        if self._offline:
+            return
+        try:
+            if self._metric_buffer:
+                points = list(self._metric_buffer)
+                self._metric_buffer.clear()
+                api.send_metrics(self.server, self.api_key, self.run_id, points)
+            if self._log_buffer:
+                entries = list(self._log_buffer)
+                self._log_buffer.clear()
+                api.send_logs(self.server, self.api_key, self.run_id, entries)
+        except Exception as e:
+            self._go_offline(e)
 
     def flush(self):
         with self._lock:
@@ -78,7 +109,7 @@ class Run:
 
     def _timed_flush(self):
         self.flush()
-        if not self._finished:
+        if not self._finished and not self._offline:
             self._start_flush_timer()
 
     def finish(self):
@@ -86,13 +117,20 @@ class Run:
         if self._timer:
             self._timer.cancel()
         self.flush()
-        api.update_run(self.server, self.api_key, self.run_id, "finished")
+        if self._offline:
+            return
+        try:
+            api.update_run(self.server, self.api_key, self.run_id, "finished")
+        except Exception as e:
+            self._go_offline(e)
 
     def _cleanup(self):
         if not self._finished:
             self.flush()
             if self._timer:
                 self._timer.cancel()
+            if self._offline:
+                return
             try:
                 api.update_run(self.server, self.api_key, self.run_id, "crashed")
             except Exception:
