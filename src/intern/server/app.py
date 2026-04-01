@@ -1,5 +1,6 @@
 import os
 import json as _json
+from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.responses import HTMLResponse
@@ -18,7 +19,15 @@ def _make_verify_api_key(api_key: str):
 
 
 def create_app(db_path: str | None = None, api_key: str = "") -> FastAPI:
-    app = FastAPI(title="my-cheap-intern")
+    from intern.server.mcp_server import create_session_manager
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        mgr = create_session_manager()
+        async with mgr.run():
+            yield
+
+    app = FastAPI(title="my-cheap-intern", lifespan=lifespan)
     app.state.api_key = api_key
 
     if db_path:
@@ -87,7 +96,7 @@ def create_app(db_path: str | None = None, api_key: str = "") -> FastAPI:
         _db.delete_project(p["id"])
         return Response(status_code=200)
 
-    # Mount MCP server
+    # Mount MCP server (Streamable HTTP + legacy SSE)
     from intern.server.mcp_server import mcp_app, set_api_key
     set_api_key(api_key)
     app.mount("/mcp", mcp_app)
@@ -125,5 +134,6 @@ def main():
     app = create_app(db_path=db_path, api_key=api_key)
     print(f"intern-server | port={port} data_dir={data_dir} auth={'on' if api_key else 'off'}")
     print(f"  Web Panel:  http://localhost:{port}/")
-    print(f"  MCP (SSE):  http://localhost:{port}/mcp/sse")
+    print(f"  MCP (HTTP): http://localhost:{port}/mcp/  (recommended, type: http)")
+    print(f"  MCP (SSE):  http://localhost:{port}/mcp/sse  (legacy, type: sse)")
     uvicorn.run(app, host=args.host, port=port)

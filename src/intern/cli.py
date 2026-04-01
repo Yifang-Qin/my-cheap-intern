@@ -67,7 +67,7 @@ def cmd_init(args):
     auth_value = f"Bearer {args.key}" if args.key else "Bearer ${INTERN_API_KEY}"
     new_config = {
         "type": "http",
-        "url": f"{server_url}/mcp/sse",
+        "url": f"{server_url}/mcp/",
         "headers": {"Authorization": auth_value},
     }
 

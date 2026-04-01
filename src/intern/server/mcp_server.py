@@ -1,8 +1,12 @@
 import json
+import contextlib
+from collections.abc import AsyncIterator
 from mcp.server import Server
 from mcp.server.sse import SseServerTransport
+from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from starlette.applications import Starlette
 from starlette.routing import Route, Mount
+from starlette.requests import Request
 from starlette.responses import Response
 import mcp.types as types
 
@@ -212,7 +216,7 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
     return [types.TextContent(type="text", text=result_text)]
 
 
-# --- SSE transport + Starlette app ---
+# --- SSE transport ---
 
 sse = SseServerTransport("/messages/")
 
@@ -226,9 +230,41 @@ async def handle_sse(request):
     return Response()
 
 
+# --- Streamable HTTP transport ---
+
+_session_manager: StreamableHTTPSessionManager | None = None
+
+
+def create_session_manager() -> StreamableHTTPSessionManager:
+    """Create a fresh session manager. Call once per app lifecycle."""
+    global _session_manager
+    _session_manager = StreamableHTTPSessionManager(app=server, stateless=True)
+    return _session_manager
+
+
+# --- Streamable HTTP ASGI app ---
+
+async def streamable_http_app(scope, receive, send):
+    """Raw ASGI app for Streamable HTTP — avoids double-response from Route wrapper."""
+    if scope["type"] != "http":
+        return
+    request = Request(scope, receive, send)
+    auth = request.headers.get("authorization", "")
+    if _api_key and (not auth.startswith("Bearer ") or auth[7:] != _api_key):
+        response = Response(status_code=401)
+        await response(scope, receive, send)
+        return
+    await _session_manager.handle_request(scope, receive, send)
+
+
+# --- Combined Starlette app (SSE + Streamable HTTP) ---
+
 mcp_app = Starlette(
     routes=[
+        # Legacy SSE transport
         Route("/sse", endpoint=handle_sse),
         Mount("/messages/", app=sse.handle_post_message),
+        # Streamable HTTP at /mcp root — must be last (catch-all)
+        Mount("/", app=streamable_http_app),
     ],
 )
