@@ -2,7 +2,7 @@ import json
 from mcp.server import Server
 from mcp.server.sse import SseServerTransport
 from starlette.applications import Starlette
-from starlette.routing import Route
+from starlette.routing import Route, Mount
 from starlette.responses import Response
 import mcp.types as types
 
@@ -223,15 +223,12 @@ async def handle_sse(request):
         return Response(status_code=401)
     async with sse.connect_sse(request.scope, request.receive, request._send) as (read_stream, write_stream):
         await server.run(read_stream, write_stream, server.create_initialization_options())
-
-
-async def handle_messages(request):
-    await sse.handle_post_message(request.scope, request.receive, request._send)
+    return Response()
 
 
 mcp_app = Starlette(
     routes=[
         Route("/sse", endpoint=handle_sse),
-        Route("/messages/", endpoint=handle_messages, methods=["POST"]),
+        Mount("/messages/", app=sse.handle_post_message),
     ],
 )
