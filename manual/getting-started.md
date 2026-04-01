@@ -13,26 +13,17 @@ A step-by-step guide for ML researchers to replace existing loggers with intern 
 In your **experiment project's** venv:
 
 ```bash
-pip install -e /path/to/my-cheap-intern
-# or, once published:
-# pip install my-cheap-intern
+pip install my-cheap-intern
 ```
 
 This only installs the lightweight SDK (`requests` + `pydantic`). It won't pollute your ML dependencies.
 
 ## Step 2: Set Up AI Assistant Support
 
-Still in your experiment project root:
+In your experiment project root:
 
 ```bash
-# If server is on localhost with default port:
 intern-cli init --key=my-key
-
-# If server is on a remote machine:
-intern-cli init --server=http://gpu-box:8080 --key=my-key
-
-# Or omit --key to use INTERN_API_KEY env var at runtime:
-intern-cli init --server=http://gpu-box:8080
 ```
 
 This does three things:
@@ -40,7 +31,7 @@ This does three things:
 2. Appends a short experiment tracking section to `CLAUDE.md`
 3. Writes MCP connection config to `.mcp.json` so your AI assistant can query experiments
 
-Your AI assistant now knows intern's API, and the MCP connection is ready to go.
+If the server is on a remote machine, add `--server=http://gpu-box:8080`.
 
 ## Step 3: Replace Your Logger
 
@@ -70,34 +61,16 @@ for epoch in range(50):
 intern.finish()
 ```
 
-**Tip**: Set environment variables to avoid hardcoding server details:
-
-```bash
-export INTERN_SERVER=http://localhost:8080
-export INTERN_API_KEY=my-key
-```
-
-Then `intern.init()` picks them up automatically — no need to pass `server=` or `api_key=`.
-
 ## Step 4: Start the Server
 
-The server needs the `[server]` extras. You can run it from the intern repo's own venv, or install it alongside your experiment:
+On the machine where you want to host the dashboard:
 
 ```bash
+pip install my-cheap-intern[server]
 intern-server launch --key=my-key
 ```
 
-You should see:
-
-```
-intern-server | port=8080 data_dir=/home/user/.intern auth=on
-  Web Panel:  http://localhost:8080/
-  MCP (SSE):  http://localhost:8080/mcp/sse
-```
-
-Open `http://localhost:8080` in your browser to see the web panel.
-
-**Note**: The server and training script can run on different machines. Just replace `localhost` with the server's IP.
+Open `http://localhost:8080` in your browser to see the web panel. The server and training script can run on different machines — just replace `localhost` with the server's IP.
 
 ## Step 5: Ask Your Assistant About Experiments
 
@@ -108,10 +81,7 @@ Once MCP is connected and you have some runs logged, you can ask naturally:
 | "What experiments did I run today?" | Searches runs by date, shows summaries with trends |
 | "Compare the baseline and the new method" | Config diff + metrics ranking side by side |
 | "Is the latest run overfitting?" | Checks train vs val loss trends, pulls raw curves |
-| "What went wrong with the crashed run?" | Finds error logs, checks for NaN issues |
 | "Which run has the best val_acc?" | Ranks all finished runs by the metric |
-
-The assistant activates the `intern-reader` skill automatically and knows how to combine the MCP tools.
 
 ## Typical Daily Workflow
 
@@ -119,4 +89,3 @@ The assistant activates the `intern-reader` skill automatically and knows how to
 2. **During experiments**: Your training scripts log to intern automatically
 3. **Check progress**: Open the web panel, or ask your AI assistant
 4. **End of day**: Ask "summarize today's experiments" — the assistant pulls all runs, compares metrics, and highlights the best results
-5. **Planning**: Ask "which hyperparameters differ between my top 3 runs?" to guide next steps
