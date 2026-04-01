@@ -95,7 +95,7 @@ SDK 和 Server 同包但分离依赖:
 | 12 | SDK 容错测试 | `test: SDK resilience tests for server down/restart scenarios` | [x] |
 | 13 | 并发写入测试 | `test: concurrent write tests for multi-writer SQLite safety` | [x] |
 | 14 | 数据边界测试 | `test: data boundary tests for empty/large/unicode edge cases` | [x] |
-| 15 | MCP 认证测试 | `test: MCP SSE auth tests for token validation` | [ ] |
+| 15 | MCP 认证测试 | `test: MCP SSE auth tests for token validation` | [x] |
 
 ### 每个 Phase 的执行流程
 
