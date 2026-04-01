@@ -2567,3 +2567,108 @@ Expected: `Smoke test PASSED`
 # Only if changes were made during smoke test
 git add -A && git commit -m "fix: smoke test fixes"
 ```
+
+### Task 11: MCP Smoke Test
+
+**Files:**
+- No new files, verify MCP tools work end-to-end via SSE transport.
+
+- [ ] **Step 1: MCP smoke test script**
+
+Write a script and run it (reuses the same server pattern as Task 10):
+
+```bash
+cat > /tmp/mcp_smoke_test.py << 'PYEOF'
+import threading, time, json, asyncio
+from intern.server.app import create_app
+from intern.server.db import init_db
+import uvicorn
+
+# --- Start server with test data ---
+init_db("/tmp/intern_mcp_smoke.db")
+app = create_app(db_path="/tmp/intern_mcp_smoke.db", api_key="mcptest")
+server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=9998, log_level="error"))
+thread = threading.Thread(target=server.run, daemon=True)
+thread.start()
+time.sleep(1)
+
+# Seed data via SDK
+import intern
+run = intern.init(project="mcp-smoke", name="run-mcp-1",
+                  config={"lr": 0.01, "batch_size": 32}, tags=["mcp", "smoke"],
+                  server="http://127.0.0.1:9998", api_key="mcptest")
+run.define_metric("loss", direction="lower_better")
+for i in range(10):
+    intern.log({"loss": 5.0 / (i + 1)}, step=i)
+intern.log_text("MCP test log", level="info", step=9)
+intern.finish()
+
+# --- MCP client via SSE ---
+from mcp.client.session import ClientSession
+from mcp.client.sse import sse_client
+
+async def run_mcp_tests():
+    headers = {"Authorization": "Bearer mcptest"}
+    async with sse_client("http://127.0.0.1:9998/mcp/sse", headers=headers) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+
+            # 1. list_tools — verify all 6 tools are registered
+            tools = await session.list_tools()
+            tool_names = {t.name for t in tools.tools}
+            expected = {"list_projects", "search_runs", "get_run_summary",
+                        "compare_runs", "get_metric_series", "get_logs"}
+            assert tool_names == expected, f"Tools mismatch: {tool_names}"
+            print("  [PASS] list_tools: 6 tools registered")
+
+            # 2. list_projects
+            result = await session.call_tool("list_projects", {})
+            projects = json.loads(result.content[0].text)
+            assert any(p["name"] == "mcp-smoke" for p in projects)
+            print("  [PASS] list_projects: mcp-smoke found")
+
+            # 3. search_runs
+            result = await session.call_tool("search_runs", {"project": "mcp-smoke"})
+            runs = json.loads(result.content[0].text)
+            assert len(runs) == 1
+            run_id = runs[0]["id"]
+            print(f"  [PASS] search_runs: found run {run_id}")
+
+            # 4. get_run_summary
+            result = await session.call_tool("get_run_summary", {"run_ids": [run_id]})
+            summaries = json.loads(result.content[0].text)
+            assert len(summaries) == 1
+            print("  [PASS] get_run_summary: got summary")
+
+            # 5. get_metric_series
+            result = await session.call_tool("get_metric_series", {"run_id": run_id, "key": "loss"})
+            series = json.loads(result.content[0].text)
+            assert len(series) == 10
+            print("  [PASS] get_metric_series: 10 data points")
+
+            # 6. get_logs
+            result = await session.call_tool("get_logs", {"run_id": run_id})
+            logs = json.loads(result.content[0].text)
+            assert len(logs) >= 1
+            print("  [PASS] get_logs: got log entries")
+
+            # 7. compare_runs (single run, just verify it doesn't crash)
+            result = await session.call_tool("compare_runs", {"run_ids": [run_id]})
+            print("  [PASS] compare_runs: no error")
+
+    print("\nMCP Smoke test PASSED")
+
+asyncio.run(run_mcp_tests())
+server.should_exit = True
+PYEOF
+.venv/bin/python /tmp/mcp_smoke_test.py
+```
+
+Expected: `MCP Smoke test PASSED`
+
+- [ ] **Step 2: Final commit if any fixes were needed**
+
+```bash
+# Only if changes were made during MCP smoke test
+git add -A && git commit -m "fix: MCP smoke test fixes"
+```

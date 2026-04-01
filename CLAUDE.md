@@ -90,7 +90,8 @@ SDK 和 Server 同包但分离依赖:
 | 7 | Logger SDK (TDD) | `feat: logger SDK with buffered upload, auto-flush, module-level API` | [x] |
 | 8 | Web Panel | `feat: web panel with project list, run list, run detail pages` | [x] |
 | 9 | CLI + README | `feat: README` | [x] |
-| 10 | 集成冒烟测试 | `test: end-to-end smoke test` | [ ] |
+| 10 | 集成冒烟测试 (REST) | `test: end-to-end smoke test` | [ ] |
+| 11 | 集成冒烟测试 (MCP) | `test: MCP end-to-end smoke test` | [ ] |
 
 ### 每个 Phase 的执行流程
 
@@ -106,4 +107,5 @@ SDK 和 Server 同包但分离依赖:
 - Phase 3 会创建 `tests/conftest.py`，后续 Phase 的测试依赖它
 - Phase 6 (MCP) 需要修改 `app.py` 添加 mount
 - Phase 8 (Web Panel) 也需要修改 `app.py` 添加 panel routes
-- Phase 10 不产生新代码，只跑全量测试 + 冒烟脚本
+- Phase 10 不产生新代码，只跑全量测试 + REST 冒烟脚本
+- Phase 11 不产生新代码，用 MCP SSE client 验证 6 个 tools 端到端可用
