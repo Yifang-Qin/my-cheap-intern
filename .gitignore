@@ -9,3 +9,6 @@ build/
 .DS_Store
 .coverage
 results/
+CLAUDE.md
+docs/
+.claude/
