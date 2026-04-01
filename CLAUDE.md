@@ -87,7 +87,7 @@ SDK 和 Server 同包但分离依赖:
 | 3 | FastAPI App + Ingest 路由 (TDD) | `feat: FastAPI app with auth and ingest routes` | [x] |
 | 4 | Query 路由 (TDD) | `feat: query routes for projects, runs, metrics, logs` | [x] |
 | 5 | 分析模块 (TDD) | `feat: analysis module with trend detection, anomaly detection, summaries` | [x] |
-| 6 | MCP Server (TDD) | `feat: MCP server with 6 tools` | [ ] |
+| 6 | MCP Server (TDD) | `feat: MCP server with 6 tools` | [x] |
 | 7 | Logger SDK (TDD) | `feat: logger SDK with buffered upload, auto-flush, module-level API` | [ ] |
 | 8 | Web Panel | `feat: web panel with project list, run list, run detail pages` | [ ] |
 | 9 | CLI + Dockerfile + README | `feat: Dockerfile and README` | [ ] |
