@@ -2672,3 +2672,473 @@ Expected: `MCP Smoke test PASSED`
 # Only if changes were made during MCP smoke test
 git add -A && git commit -m "fix: MCP smoke test fixes"
 ```
+
+### Task 12: SDK Resilience Tests
+
+**目标：** 验证 SDK 在 server 不可达、崩溃、超时等场景下不会阻塞用户训练脚本。
+
+**Files:**
+- `tests/test_sdk_resilience.py` (new)
+
+- [ ] **Step 1: 测试 — server 不可达时 SDK 行为**
+
+```python
+# tests/test_sdk_resilience.py
+"""SDK resilience tests — verify SDK doesn't block training when server is down."""
+import threading
+import time
+import pytest
+from unittest.mock import patch
+import requests
+
+from intern.sdk.client import Run
+from intern.sdk import api
+
+
+class TestServerUnreachable:
+    """SDK should raise on init (can't create project/run), but log/flush should not crash."""
+
+    def test_init_fails_when_server_down(self):
+        """intern.init should raise when server is unreachable."""
+        with pytest.raises(requests.ConnectionError):
+            Run(server="http://127.0.0.1:19999", api_key="key",
+                project="test", name="run-1")
+
+    def test_flush_tolerates_server_down(self):
+        """Once a Run is created, flush should not crash if server goes away."""
+        # Create a Run with mocked init calls
+        with patch.object(api, "create_project", return_value={}), \
+             patch.object(api, "create_run", return_value={"id": "r1", "name": "run-1"}):
+            run = Run(server="http://127.0.0.1:19999", api_key="key",
+                      project="test", name="run-1")
+
+        # Log some data — this just buffers, no network
+        run.log({"loss": 1.0}, step=0)
+
+        # Flush should raise (server gone), but that's expected —
+        # the key thing is it doesn't hang forever
+        with pytest.raises(requests.ConnectionError):
+            run.flush()
+
+        # Run object is still usable for buffering
+        run.log({"loss": 0.5}, step=1)
+        assert len(run._metric_buffer) == 1  # new data buffered
+
+        run._finished = True  # prevent timer from firing
+
+    def test_finish_tolerates_server_down(self):
+        """finish() should propagate the error but not hang."""
+        with patch.object(api, "create_project", return_value={}), \
+             patch.object(api, "create_run", return_value={"id": "r1", "name": "run-1"}):
+            run = Run(server="http://127.0.0.1:19999", api_key="key",
+                      project="test", name="run-1")
+
+        run.log({"loss": 1.0}, step=0)
+        with pytest.raises(requests.ConnectionError):
+            run.finish()
+```
+
+Expected: `3 passed`
+
+- [ ] **Step 2: 测试 — server 中途重启**
+
+在 `tests/test_sdk_resilience.py` 中追加：
+
+```python
+class TestServerMidwayRestart:
+    """Simulate server going away and coming back."""
+
+    def test_log_before_and_after_server_restart(self):
+        """SDK can resume logging after server comes back."""
+        import uvicorn
+        from intern.server.app import create_app
+        from intern.server.db import init_db
+        import os
+
+        db_path = "/tmp/intern_resilience.db"
+        if os.path.exists(db_path):
+            os.remove(db_path)
+        init_db(db_path)
+
+        # Start server
+        app = create_app(db_path=db_path, api_key="test")
+        srv = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=19876, log_level="error"))
+        t = threading.Thread(target=srv.run, daemon=True)
+        t.start()
+        time.sleep(0.5)
+
+        # Init SDK
+        import intern
+        run = intern.init(project="resilience", name="run-1",
+                          config={}, tags=[],
+                          server="http://127.0.0.1:19876", api_key="test")
+        run.log({"loss": 1.0}, step=0)
+        run.flush()
+
+        # Stop server
+        srv.should_exit = True
+        time.sleep(0.5)
+
+        # Log while server is down — just buffers
+        run.log({"loss": 0.5}, step=1)
+
+        # Flush fails (server down)
+        with pytest.raises(requests.ConnectionError):
+            run.flush()
+
+        # Restart server (same DB)
+        srv2 = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=19876, log_level="error"))
+        t2 = threading.Thread(target=srv2.run, daemon=True)
+        t2.start()
+        time.sleep(0.5)
+
+        # Now flush succeeds — data from step=1 arrives
+        run.log({"loss": 0.3}, step=2)
+        run.flush()
+        run.finish()
+
+        # Verify via API
+        headers = {"Authorization": "Bearer test"}
+        resp = requests.get(f"http://127.0.0.1:19876/api/runs/{run.run_id}/metrics/loss",
+                            headers=headers)
+        series = resp.json()
+        steps = [p["step"] for p in series]
+        assert 0 in steps
+        assert 2 in steps
+
+        srv2.should_exit = True
+```
+
+Expected: `4 passed` (3 from Step 1 + 1 new)
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add tests/test_sdk_resilience.py && git commit -m "test: SDK resilience tests for server down/restart scenarios"
+```
+
+### Task 13: Concurrent Write Tests
+
+**目标：** 验证多个 SDK client 同时写入同一个 server 不会报错或丢数据。
+
+**Files:**
+- `tests/test_concurrent.py` (new)
+
+- [ ] **Step 1: 测试 — 多 run 并发写入**
+
+```python
+# tests/test_concurrent.py
+"""Concurrent write tests — verify SQLite handles multiple SDK writers."""
+import threading
+import time
+import os
+import requests
+import uvicorn
+import pytest
+
+from intern.server.app import create_app
+from intern.server.db import init_db
+
+
+@pytest.fixture(scope="module")
+def concurrent_server():
+    """Start a real server for concurrent tests."""
+    db_path = "/tmp/intern_concurrent.db"
+    if os.path.exists(db_path):
+        os.remove(db_path)
+    init_db(db_path)
+    app = create_app(db_path=db_path, api_key="conc")
+    srv = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=19877, log_level="error"))
+    t = threading.Thread(target=srv.run, daemon=True)
+    t.start()
+    time.sleep(0.5)
+    yield "http://127.0.0.1:19877"
+    srv.should_exit = True
+
+
+def _run_writer(server_url: str, project: str, run_name: str, n_steps: int, errors: list):
+    """Worker that creates a run and writes metrics."""
+    try:
+        import intern
+        run = intern.init(project=project, name=run_name,
+                          config={"worker": run_name}, tags=["concurrent"],
+                          server=server_url, api_key="conc")
+        for i in range(n_steps):
+            intern.log({"loss": float(n_steps - i)}, step=i)
+        intern.finish()
+    except Exception as e:
+        errors.append((run_name, e))
+
+
+class TestConcurrentWrites:
+    def test_5_writers_same_project(self, concurrent_server):
+        """5 concurrent SDK writers to the same project should all succeed."""
+        errors = []
+        threads = []
+        n_writers = 5
+        n_steps = 20
+
+        for i in range(n_writers):
+            t = threading.Thread(target=_run_writer,
+                                 args=(concurrent_server, "conc-project", f"writer-{i}", n_steps, errors))
+            threads.append(t)
+
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=30)
+
+        assert errors == [], f"Writer errors: {errors}"
+
+        # Verify all runs exist
+        headers = {"Authorization": "Bearer conc"}
+        runs = requests.get(f"{concurrent_server}/api/projects/conc-project/runs",
+                            headers=headers).json()
+        assert len(runs) == n_writers
+
+        # Verify each run has correct number of metric points
+        for run in runs:
+            series = requests.get(f"{concurrent_server}/api/runs/{run['id']}/metrics/loss",
+                                  headers=headers).json()
+            assert len(series) == n_steps, f"Run {run['id']} has {len(series)} points, expected {n_steps}"
+
+    def test_3_writers_different_projects(self, concurrent_server):
+        """3 concurrent writers to different projects."""
+        errors = []
+        threads = []
+
+        for i in range(3):
+            t = threading.Thread(target=_run_writer,
+                                 args=(concurrent_server, f"proj-{i}", f"run-{i}", 10, errors))
+            threads.append(t)
+
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=30)
+
+        assert errors == [], f"Writer errors: {errors}"
+
+        headers = {"Authorization": "Bearer conc"}
+        projects = requests.get(f"{concurrent_server}/api/projects", headers=headers).json()
+        proj_names = {p["name"] for p in projects}
+        assert {"proj-0", "proj-1", "proj-2"}.issubset(proj_names)
+```
+
+Expected: `2 passed`
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add tests/test_concurrent.py && git commit -m "test: concurrent write tests for multi-writer SQLite safety"
+```
+
+### Task 14: Data Boundary Tests
+
+**目标：** 验证 API 和 MCP tools 在边界数据（空、超大、特殊字符）下正常工作。
+
+**Files:**
+- `tests/test_boundaries.py` (new)
+
+- [ ] **Step 1: 测试 — 边界场景**
+
+```python
+# tests/test_boundaries.py
+"""Data boundary tests — edge cases for API and MCP tools."""
+import pytest
+import json
+from intern.server.db import init_db, list_projects, create_project, create_run, \
+    insert_metrics, insert_logs, get_metric_series, search_runs, get_run
+from intern.server.mcp_server import handle_tool_call
+
+
+@pytest.fixture(autouse=True)
+def setup_db(tmp_path):
+    init_db(str(tmp_path / "boundary.db"))
+
+
+class TestEmptyState:
+    """API behavior when there's no data."""
+
+    def test_list_projects_empty(self):
+        assert list_projects() == []
+
+    def test_search_runs_empty_project(self):
+        create_project("empty-proj")
+        results = search_runs("empty-proj")
+        assert results == []
+
+    def test_mcp_list_projects_empty(self):
+        result = json.loads(handle_tool_call("list_projects", {}))
+        assert result == []
+
+    def test_mcp_get_run_summary_empty_list(self):
+        result = json.loads(handle_tool_call("get_run_summary", {"run_ids": []}))
+        assert result == []
+
+    def test_mcp_get_metric_series_nonexistent_run(self):
+        result = handle_tool_call("get_metric_series", {"run_id": "nonexistent", "key": "loss"})
+        # Should return empty or error message, not crash
+        assert result is not None
+
+
+class TestLargeData:
+    """Behavior with large volumes of data."""
+
+    def test_10k_metric_points(self):
+        create_project("big")
+        run = create_run("big", name="big-run", config={}, tags=[])
+        points = [{"key": "loss", "step": i, "value": 1.0 / (i + 1),
+                   "timestamp": "2026-01-01T00:00:00+00:00"} for i in range(10000)]
+        insert_metrics(run["id"], points)
+        series = get_metric_series(run["id"], "loss")
+        assert len(series) == 10000
+
+    def test_mcp_downsample_large_series(self):
+        create_project("big2")
+        run = create_run("big2", name="big-run-2", config={}, tags=[])
+        points = [{"key": "acc", "step": i, "value": float(i),
+                   "timestamp": "2026-01-01T00:00:00+00:00"} for i in range(5000)]
+        insert_metrics(run["id"], points)
+        result = json.loads(handle_tool_call("get_metric_series", {
+            "run_id": run["id"], "key": "acc", "downsample": 100,
+        }))
+        assert len(result) == 100
+
+
+class TestSpecialCharacters:
+    """Unicode, long strings, special chars in names/tags/config."""
+
+    def test_unicode_project_name(self):
+        create_project("实验-αβγ-テスト")
+        projects = list_projects()
+        assert any(p["name"] == "实验-αβγ-テスト" for p in projects)
+
+    def test_unicode_run_name_and_tags(self):
+        create_project("unicode")
+        run = create_run("unicode", name="训练-🚀", config={"模型": "Transformer"},
+                         tags=["中文标签", "émoji-🎯"])
+        fetched = get_run(run["id"])
+        assert fetched["name"] == "训练-🚀"
+        assert "中文标签" in fetched["tags"]
+
+    def test_long_config_value(self):
+        create_project("longcfg")
+        long_val = "x" * 10000
+        run = create_run("longcfg", name="run", config={"desc": long_val}, tags=[])
+        fetched = get_run(run["id"])
+        assert fetched["config"]["desc"] == long_val
+
+    def test_mcp_search_unicode_query(self):
+        create_project("搜索测试")
+        create_run("搜索测试", name="实验一", config={}, tags=["标签"])
+        result = json.loads(handle_tool_call("search_runs", {
+            "project": "搜索测试", "query": "实验",
+        }))
+        assert len(result) >= 1
+
+
+class TestZeroMetricRun:
+    """Run with no metrics at all."""
+
+    def test_mcp_summary_no_metrics(self):
+        create_project("nometric")
+        run = create_run("nometric", name="empty-run", config={}, tags=[])
+        result = json.loads(handle_tool_call("get_run_summary", {"run_ids": [run["id"]]}))
+        assert len(result) == 1
+        # Should have empty metrics section, not crash
+
+    def test_mcp_compare_no_metrics(self):
+        create_project("nometric2")
+        r1 = create_run("nometric2", name="r1", config={"a": 1}, tags=[])
+        r2 = create_run("nometric2", name="r2", config={"a": 2}, tags=[])
+        result = json.loads(handle_tool_call("compare_runs", {
+            "run_ids": [r1["id"], r2["id"]],
+        }))
+        assert result is not None
+```
+
+Expected: all passed
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add tests/test_boundaries.py && git commit -m "test: data boundary tests for empty/large/unicode edge cases"
+```
+
+### Task 15: MCP Auth Tests
+
+**目标：** 验证 MCP SSE 端点的认证保护——错误 token、无 token 都不能访问。
+
+**Files:**
+- `tests/test_mcp_auth.py` (new)
+
+- [ ] **Step 1: 测试 — MCP SSE 认证**
+
+```python
+# tests/test_mcp_auth.py
+"""MCP auth tests — verify SSE endpoint rejects bad/missing credentials."""
+import threading
+import time
+import os
+import pytest
+import httpx
+import asyncio
+
+import uvicorn
+from intern.server.app import create_app
+from intern.server.db import init_db
+
+
+@pytest.fixture(scope="module")
+def auth_server():
+    db_path = "/tmp/intern_mcp_auth.db"
+    if os.path.exists(db_path):
+        os.remove(db_path)
+    init_db(db_path)
+    app = create_app(db_path=db_path, api_key="secret123")
+    srv = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=19878, log_level="error"))
+    t = threading.Thread(target=srv.run, daemon=True)
+    t.start()
+    time.sleep(0.5)
+    yield "http://127.0.0.1:19878"
+    srv.should_exit = True
+
+
+class TestMcpAuth:
+    def test_sse_no_token_returns_401(self, auth_server):
+        """SSE endpoint without auth header should return 401."""
+        resp = httpx.get(f"{auth_server}/mcp/sse", timeout=5)
+        assert resp.status_code == 401
+
+    def test_sse_wrong_token_returns_401(self, auth_server):
+        """SSE endpoint with wrong token should return 401."""
+        resp = httpx.get(f"{auth_server}/mcp/sse",
+                         headers={"Authorization": "Bearer wrongtoken"},
+                         timeout=5)
+        assert resp.status_code == 401
+
+    def test_sse_correct_token_connects(self, auth_server):
+        """SSE endpoint with correct token should accept connection (status 200)."""
+        async def check():
+            from mcp.client.session import ClientSession
+            from mcp.client.sse import sse_client
+            headers = {"Authorization": "Bearer secret123"}
+            async with sse_client(f"{auth_server}/mcp/sse", headers=headers) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    tools = await session.list_tools()
+                    assert len(tools.tools) == 6
+            return True
+
+        result = asyncio.run(check())
+        assert result is True
+```
+
+Expected: `3 passed`
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add tests/test_mcp_auth.py && git commit -m "test: MCP SSE auth tests for token validation"
+```

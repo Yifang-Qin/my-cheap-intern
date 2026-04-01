@@ -92,6 +92,10 @@ SDK 和 Server 同包但分离依赖:
 | 9 | CLI + README | `feat: README` | [x] |
 | 10 | 集成冒烟测试 (REST) | `test: end-to-end smoke test` | [x] |
 | 11 | 集成冒烟测试 (MCP) | `test: MCP end-to-end smoke test` | [x] |
+| 12 | SDK 容错测试 | `test: SDK resilience tests for server down/restart scenarios` | [ ] |
+| 13 | 并发写入测试 | `test: concurrent write tests for multi-writer SQLite safety` | [ ] |
+| 14 | 数据边界测试 | `test: data boundary tests for empty/large/unicode edge cases` | [ ] |
+| 15 | MCP 认证测试 | `test: MCP SSE auth tests for token validation` | [ ] |
 
 ### 每个 Phase 的执行流程
 
@@ -109,3 +113,7 @@ SDK 和 Server 同包但分离依赖:
 - Phase 8 (Web Panel) 也需要修改 `app.py` 添加 panel routes
 - Phase 10 不产生新代码，只跑全量测试 + REST 冒烟脚本
 - Phase 11 不产生新代码，用 MCP SSE client 验证 6 个 tools 端到端可用
+- Phase 12-15 是发布前的加固测试，每个 Phase 新增一个测试文件，可能触发实现层修复
+- Phase 12 需要 `requests` 的 ConnectionError（SDK 已依赖 requests）
+- Phase 13 起真实 server（module-scope fixture），注意端口不要和其他测试冲突
+- Phase 15 需要 `httpx`（检查是否已安装，未装则 `uv pip install httpx`）
