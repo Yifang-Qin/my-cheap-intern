@@ -79,6 +79,56 @@ def test_search_runs(db):
     assert results[0]["id"] == "r3"
 
 
+def test_search_runs_status_filter(db):
+    p = create_project("proj")
+    create_run(p["id"], "r1", "run-1", {}, [])
+    create_run(p["id"], "r2", "run-2", {}, [])
+    update_run_status("r1", "finished")
+
+    results = search_runs(p["id"], status="finished")
+    assert len(results) == 1
+    assert results[0]["id"] == "r1"
+
+    results = search_runs(p["id"], status="running")
+    assert len(results) == 1
+    assert results[0]["id"] == "r2"
+
+
+def test_search_runs_time_filter(db):
+    p = create_project("proj")
+    create_run(p["id"], "r1", "old-run", {}, [])
+    create_run(p["id"], "r2", "new-run", {}, [])
+
+    # 两个 run 都是刚创建的，用一个未来时间做 started_before 应该都命中
+    results = search_runs(p["id"], started_before="2099-01-01T00:00:00")
+    assert len(results) == 2
+
+    # 用一个未来时间做 started_after 应该都不命中
+    results = search_runs(p["id"], started_after="2099-01-01T00:00:00")
+    assert len(results) == 0
+
+
+def test_get_run_nonexistent(db):
+    assert get_run("no-such-id") is None
+
+
+def test_update_run_sets_finished_at(db):
+    p = create_project("proj")
+    r = create_run(p["id"], "r1", "run", {}, [])
+    assert r["finished_at"] is None
+
+    update_run_status("r1", "finished")
+    updated = get_run("r1")
+    assert updated["status"] == "finished"
+    assert updated["finished_at"] is not None
+
+    # crashed 也应该写 finished_at
+    create_run(p["id"], "r2", "run-2", {}, [])
+    update_run_status("r2", "crashed")
+    crashed = get_run("r2")
+    assert crashed["finished_at"] is not None
+
+
 def test_metric_operations(db):
     p = create_project("proj")
     r = create_run(p["id"], "r1", "run", {}, [])

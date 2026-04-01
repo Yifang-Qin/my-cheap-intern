@@ -57,6 +57,7 @@ SDK 和 Server 同包但分离依赖:
 - 不加 try/except、assert、输入校验，除非明确要求
 - 不用 ORM，SQLite 直接写 SQL
 - 前端不引入任何构建工具或 JS 框架
+- Python 和 pytest 统一用 `.venv/bin/python` 和 `.venv/bin/python -m pytest`，不要用裸 `python` 或 `pytest`（系统 PATH 里可能找不到）
 - commit message 用英文，简洁描述改动
 
 ## MCP Tools 速查
