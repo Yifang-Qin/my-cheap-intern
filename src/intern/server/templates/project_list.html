@@ -14,7 +14,7 @@
             <td>{{ p.last_active_at or '—' }}</td>
             <td>
                 <button class="btn-delete"
-                        hx-delete="/api/projects/{{ p.name }}"
+                        hx-delete="/panel/projects/{{ p.name }}"
                         hx-confirm="确认删除项目 {{ p.name }}？所有 runs 将被一并删除"
                         hx-target="closest tr"
                         hx-swap="outerHTML">Delete</button>

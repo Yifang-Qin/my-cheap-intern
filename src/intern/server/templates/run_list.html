@@ -26,7 +26,7 @@
             <td>{{ r.started_at[:19] }}</td>
             <td>
                 <button class="btn-delete"
-                        hx-delete="/api/runs/{{ r.id }}"
+                        hx-delete="/panel/runs/{{ r.id }}"
                         hx-confirm="确认删除 run {{ r.name }}？"
                         hx-target="closest tr"
                         hx-swap="outerHTML">Delete</button>

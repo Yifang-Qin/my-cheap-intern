@@ -68,6 +68,25 @@ def create_app(db_path: str | None = None, api_key: str = "") -> FastAPI:
             "config_json": _json.dumps(run["config"], indent=2),
         })
 
+    # Panel delete actions (no auth — panel is already accessible without auth)
+    from fastapi.responses import JSONResponse
+
+    @app.delete("/panel/runs/{run_id}")
+    def panel_delete_run(run_id: str):
+        run = _db.get_run(run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="Run not found")
+        _db.delete_run(run_id)
+        return JSONResponse(content={"status": "ok"})
+
+    @app.delete("/panel/projects/{project}")
+    def panel_delete_project(project: str):
+        p = _db.get_project_by_name(project)
+        if not p:
+            raise HTTPException(status_code=404, detail="Project not found")
+        _db.delete_project(p["id"])
+        return JSONResponse(content={"status": "ok"})
+
     # Mount MCP server
     from intern.server.mcp_server import mcp_app, set_api_key
     set_api_key(api_key)
