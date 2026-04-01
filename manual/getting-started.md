@@ -25,14 +25,22 @@ This only installs the lightweight SDK (`requests` + `pydantic`). It won't pollu
 Still in your experiment project root:
 
 ```bash
-intern-cli init
+# If server is on localhost with default port:
+intern-cli init --key=my-key
+
+# If server is on a remote machine:
+intern-cli init --server=http://gpu-box:8080 --key=my-key
+
+# Or omit --key to use INTERN_API_KEY env var at runtime:
+intern-cli init --server=http://gpu-box:8080
 ```
 
-This does two things:
+This does three things:
 1. Creates `.claude/skills/intern-logger/` and `.claude/skills/intern-reader/` with full API reference
 2. Appends a short experiment tracking section to `CLAUDE.md`
+3. Writes MCP connection config to `.mcp.json` so your AI assistant can query experiments
 
-Your AI assistant now knows intern's API and can write correct integration code.
+Your AI assistant now knows intern's API, and the MCP connection is ready to go.
 
 ## Step 3: Replace Your Logger
 
@@ -91,23 +99,7 @@ Open `http://localhost:8080` in your browser to see the web panel.
 
 **Note**: The server and training script can run on different machines. Just replace `localhost` with the server's IP.
 
-## Step 5: Connect Your AI Assistant via MCP
-
-Add this to your Claude Code MCP settings (one-time setup):
-
-```json
-{
-  "mcpServers": {
-    "my-cheap-intern": {
-      "type": "sse",
-      "url": "http://localhost:8080/mcp/sse",
-      "headers": { "Authorization": "Bearer my-key" }
-    }
-  }
-}
-```
-
-## Step 6: Ask Your Assistant About Experiments
+## Step 5: Ask Your Assistant About Experiments
 
 Once MCP is connected and you have some runs logged, you can ask naturally:
 

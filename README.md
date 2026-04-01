@@ -75,13 +75,13 @@ intern.finish()
 
 ### Connect AI Assistant (MCP)
 
-Add to your Claude Code MCP settings:
+`intern-cli init` writes `.mcp.json` automatically. Or configure manually:
 
 ```json
 {
   "mcpServers": {
     "my-cheap-intern": {
-      "type": "sse",
+      "type": "http",
       "url": "http://your-server:8080/mcp/sse",
       "headers": { "Authorization": "Bearer your-api-key" }
     }

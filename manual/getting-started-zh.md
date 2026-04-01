@@ -25,14 +25,22 @@ SDK 只依赖 `requests` + `pydantic`，不会影响你的 ML 环境。
 在实验项目根目录执行：
 
 ```bash
-intern-cli init
+# Server 在本机、默认端口：
+intern-cli init --key=my-key
+
+# Server 在远程机器：
+intern-cli init --server=http://gpu-box:8080 --key=my-key
+
+# 不写死 key，运行时从 INTERN_API_KEY 环境变量读取：
+intern-cli init --server=http://gpu-box:8080
 ```
 
 这条命令会：
 1. 在 `.claude/skills/` 下创建 `intern-logger` 和 `intern-reader` 两个 skill，包含完整 API 参考
 2. 在 `CLAUDE.md` 末尾追加一段实验追踪的背景描述
+3. 在 `.mcp.json` 中写入 MCP 连接配置，AI 助手可以直接查询实验数据
 
-执行后，你的 AI 助手就知道 intern 的 API 了。
+执行后，AI 助手既知道 intern 的 API，MCP 连接也配好了。
 
 ## 第三步：让 AI 助手替你重构日志代码
 
@@ -91,23 +99,7 @@ intern-server | port=8080 data_dir=/home/user/.intern auth=on
 
 **注意**：Server 和训练脚本可以在不同机器上，把 `localhost` 换成 server 的 IP 即可。
 
-## 第五步：通过 MCP 接入 AI 助手
-
-在 Claude Code 的 MCP 设置里添加（只需配一次）：
-
-```json
-{
-  "mcpServers": {
-    "my-cheap-intern": {
-      "type": "sse",
-      "url": "http://localhost:8080/mcp/sse",
-      "headers": { "Authorization": "Bearer my-key" }
-    }
-  }
-}
-```
-
-## 第六步：让 AI 助手查询实验
+## 第五步：让 AI 助手查询实验
 
 MCP 接入后，有了一些 run 数据，就可以自然语言提问：
 
