@@ -1,6 +1,11 @@
 ---
 name: intern-logger
-description: "SDK reference for my-cheap-intern experiment tracking. Use when integrating experiment logging, replacing wandb/tensorboard, or writing training scripts with intern."
+description: >
+  SDK reference for my-cheap-intern experiment tracking.
+  TRIGGER when: writing or modifying training code that needs experiment logging,
+  integrating intern SDK, replacing wandb/tensorboard,
+  or user asks to add metrics/logging to a training script —
+  e.g. "加上实验记录", "把训练指标记下来", "add logging", "track this experiment".
 ---
 
 # my-cheap-intern Logger SDK

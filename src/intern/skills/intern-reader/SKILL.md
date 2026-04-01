@@ -1,6 +1,11 @@
 ---
 name: intern-reader
-description: "Guide for querying experiment data via my-cheap-intern MCP tools. Use when analyzing experiments, comparing runs, summarizing results, or investigating training issues."
+description: >
+  Guide for querying experiment data via my-cheap-intern MCP tools.
+  TRIGGER when: user asks about experiments, runs, metrics, training results, or logs —
+  e.g. "今天跑了哪些实验", "最新结果怎么样", "对比这两个run", "训练炸了吗",
+  "show today's runs", "compare experiments", "is it overfitting", "what crashed".
+  Also trigger when you need to look up run IDs, check training progress, or investigate failures.
 ---
 
 # my-cheap-intern Experiment Reader

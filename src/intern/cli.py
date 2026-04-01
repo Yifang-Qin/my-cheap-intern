@@ -13,12 +13,11 @@ MARKER_END = "<!-- intern:end -->"
 CLAUDE_MD_SNIPPET = f"""{MARKER_BEGIN}
 ## Intern Experiment Tracking
 
-This project uses [my-cheap-intern](https://github.com/Yifang-Qin/my-cheap-intern) for experiment logging.
+**行为规则**：当用户询问实验、训练、run、指标、结果等相关问题时（例如"今天跑了哪些实验"、"最新结果怎么样"、"对比一下"、"训练炸了吗"），**立即使用 `intern-reader` skill 并调用 intern MCP 工具查询，不要先追问用户要哪个 run**。
 
-- SDK: `import intern` → `intern.init()` / `intern.log()` / `intern.finish()`
-- Server: set `INTERN_SERVER` and `INTERN_API_KEY` env vars, or pass them to `intern.init()`
-- Claude Code skills `intern-logger` and `intern-reader` are installed in `.claude/skills/` — they contain full API reference and MCP query patterns.
-- MCP connection is configured in `.mcp.json` — your AI assistant can query experiments directly.
+- **查实验数据** → 调用 `intern-reader` skill，内含 MCP 工具用法和常见查询模式
+- **写 logging 代码** → 调用 `intern-logger` skill，内含 SDK API 参考
+- MCP 连接配置在 `.mcp.json`，工具名前缀 `mcp__my-cheap-intern__`
 {MARKER_END}
 """
 MCP_SERVER_KEY = "my-cheap-intern"
