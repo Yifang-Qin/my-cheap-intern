@@ -60,9 +60,10 @@ def set_db_path(path: str):
 
 
 def get_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(_db_path)
+    conn = sqlite3.connect(_db_path, timeout=10)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=10000")
     conn.execute("PRAGMA foreign_keys=ON")
     return conn
 
@@ -84,11 +85,11 @@ def create_project(name: str, description: str = "") -> dict:
     conn = get_connection()
     project_id = str(uuid.uuid4())
     conn.execute(
-        "INSERT INTO projects (id, name, description, created_at) VALUES (?, ?, ?, ?)",
+        "INSERT OR IGNORE INTO projects (id, name, description, created_at) VALUES (?, ?, ?, ?)",
         (project_id, name, description, _now()),
     )
     conn.commit()
-    row = conn.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+    row = conn.execute("SELECT * FROM projects WHERE name = ?", (name,)).fetchone()
     conn.close()
     return dict(row)
 
