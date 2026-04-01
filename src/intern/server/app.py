@@ -77,12 +77,34 @@ def create_app(db_path: str | None = None, api_key: str = "") -> FastAPI:
 
 
 def main():
-    import uvicorn
-    port = int(os.environ.get("INTERN_PORT", "8080"))
-    api_key = os.environ.get("INTERN_API_KEY", "")
-    data_dir = os.environ.get("INTERN_DATA_DIR", str(Path.home() / ".intern"))
+    import argparse, uvicorn
+
+    parser = argparse.ArgumentParser(prog="intern-server")
+    sub = parser.add_subparsers(dest="command")
+
+    launch = sub.add_parser("launch", help="Start the server")
+    launch.add_argument("--key", default=None, help="API key (env: INTERN_API_KEY)")
+    launch.add_argument("--port", type=int, default=None, help="Port (env: INTERN_PORT, default: 8080)")
+    launch.add_argument("--data-dir", default=None, help="Data directory (env: INTERN_DATA_DIR, default: ~/.intern)")
+    launch.add_argument("--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)")
+
+    args = parser.parse_args()
+    if args.command is None:
+        args.command = "launch"
+        args.key = None
+        args.port = None
+        args.data_dir = None
+        args.host = "0.0.0.0"
+
+    api_key = args.key or os.environ.get("INTERN_API_KEY", "")
+    port = args.port or int(os.environ.get("INTERN_PORT", "8080"))
+    data_dir = args.data_dir or os.environ.get("INTERN_DATA_DIR", str(Path.home() / ".intern"))
+
     Path(data_dir).mkdir(parents=True, exist_ok=True)
     db_path = str(Path(data_dir) / "data.db")
 
     app = create_app(db_path=db_path, api_key=api_key)
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    print(f"intern-server | port={port} data_dir={data_dir} auth={'on' if api_key else 'off'}")
+    print(f"  Web Panel:  http://localhost:{port}/")
+    print(f"  MCP (SSE):  http://localhost:{port}/mcp/sse")
+    uvicorn.run(app, host=args.host, port=port)

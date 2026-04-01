@@ -6,19 +6,48 @@ AI-native experiment tracking for ML researchers. Like a cheap intern who reads 
 
 ### Install
 
+**From local source** (recommended during development):
+
 ```bash
-pip install my-cheap-intern          # SDK only (training machines)
+# In your experiment project's venv, install SDK only
+pip install -e /path/to/my-cheap-intern
+
+# On the server machine, install with server dependencies
+pip install -e /path/to/my-cheap-intern[server]
+```
+
+The `-e` (editable) flag means changes to intern source take effect immediately without reinstalling.
+
+**From PyPI** (once published):
+
+```bash
+pip install my-cheap-intern          # SDK only
 pip install my-cheap-intern[server]  # Full server
 ```
 
 ### Start Server
 
 ```bash
+# One-liner
+intern-server launch --key=your-secret-key
+
+# Custom port and data directory
+intern-server launch --key=your-secret-key --port=9000 --data-dir=./my-experiments
+
+# Or use environment variables
 export INTERN_API_KEY=your-secret-key
+export INTERN_PORT=8080            # optional, default 8080
+export INTERN_DATA_DIR=~/.intern   # optional, default ~/.intern
 intern-server
 ```
 
-Server runs at `http://localhost:8080`. Web panel at `/`, MCP endpoint at `/mcp/sse`.
+CLI flags take precedence over environment variables. Server prints endpoints on startup:
+
+```
+intern-server | port=8080 data_dir=/home/user/.intern auth=on
+  Web Panel:  http://localhost:8080/
+  MCP (SSE):  http://localhost:8080/mcp/sse
+```
 
 ### Log Experiments
 
@@ -60,8 +89,46 @@ Add to your Claude Code MCP settings:
 
 ## Configuration
 
-| Env Variable | Default | Description |
-|---|---|---|
-| INTERN_PORT | 8080 | Server port |
-| INTERN_API_KEY | (required) | Auth key |
-| INTERN_DATA_DIR | ~/.intern | Data directory |
+| CLI Flag | Env Variable | Default | Description |
+|---|---|---|---|
+| `--key` | `INTERN_API_KEY` | *(empty, no auth)* | API key for authentication |
+| `--port` | `INTERN_PORT` | `8080` | Server port |
+| `--data-dir` | `INTERN_DATA_DIR` | `~/.intern` | SQLite database directory |
+| `--host` | — | `0.0.0.0` | Bind address |
+
+## AI Assistant Integration
+
+my-cheap-intern ships with Claude Code skills that teach your AI assistant how to use the SDK and query experiments. This is useful during vibe coding — the assistant won't know intern's API otherwise.
+
+### Option 1: Install Skills (recommended)
+
+Copy skills into your experiment project or global Claude config:
+
+```bash
+# Per-project (only this codebase)
+cp -r /path/to/my-cheap-intern/.claude/skills/intern-* .claude/skills/
+
+# Or global (all projects)
+cp -r /path/to/my-cheap-intern/.claude/skills/intern-* ~/.claude/skills/
+```
+
+Two skills are provided:
+- **intern-logger** — SDK API reference. Activates when the assistant sees "logger", "experiment tracking", "intern", etc.
+- **intern-reader** — MCP query guide. Activates when the assistant sees "experiment results", "compare runs", etc.
+
+### Option 2: CLAUDE.md Snippet
+
+If you prefer not to install skills, add this to your project's `CLAUDE.md`:
+
+```markdown
+## Experiment Tracking
+
+This project uses my-cheap-intern for experiment logging.
+Server: http://localhost:8080 | API key: (your key here)
+
+SDK usage: `import intern` then `intern.init(project, name, config, tags, server, api_key)`,
+`intern.log({"metric": value}, step=N)`, `intern.log_text("message")`, `intern.finish()`.
+
+For detailed SDK API, read the skill file at /path/to/my-cheap-intern/.claude/skills/intern-logger/SKILL.md
+For MCP query patterns, read /path/to/my-cheap-intern/.claude/skills/intern-reader/SKILL.md
+```

@@ -27,6 +27,8 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/intern"]
+artifacts = ["src/intern/skills/**/*.md"]
 
 [project.scripts]
 intern-server = "intern.server.app:main"
+intern-cli = "intern.cli:main"
