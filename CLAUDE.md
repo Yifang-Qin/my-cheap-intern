@@ -43,7 +43,6 @@ my-cheap-intern/
 ├── tests/
 ├── docs/
 ├── pyproject.toml
-├── Dockerfile
 └── README.md
 ```
 
@@ -90,7 +89,7 @@ SDK 和 Server 同包但分离依赖:
 | 6 | MCP Server (TDD) | `feat: MCP server with 6 tools` | [x] |
 | 7 | Logger SDK (TDD) | `feat: logger SDK with buffered upload, auto-flush, module-level API` | [x] |
 | 8 | Web Panel | `feat: web panel with project list, run list, run detail pages` | [x] |
-| 9 | CLI + Dockerfile + README | `feat: Dockerfile and README` | [ ] |
+| 9 | CLI + README | `feat: README` | [x] |
 | 10 | 集成冒烟测试 | `test: end-to-end smoke test` | [ ] |
 
 ### 每个 Phase 的执行流程

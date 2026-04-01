@@ -50,7 +50,6 @@ tests/
 ├── test_mcp.py
 └── test_sdk.py
 pyproject.toml
-Dockerfile
 ```
 
 ---
@@ -2396,11 +2395,10 @@ git commit -m "feat: web panel with project list, run list, run detail pages"
 
 ---
 
-### Task 9: CLI Entry Point + Dockerfile + README
+### Task 9: CLI Entry Point + README
 
 **Files:**
 - Modify: `src/intern/server/app.py` (already has `main()`)
-- Create: `Dockerfile`
 - Create: `README.md`
 
 - [ ] **Step 1: Verify CLI entry point works**
@@ -2415,28 +2413,7 @@ INTERN_API_KEY=test timeout 3 intern-server 2>&1 | head -5
 
 Expected: Uvicorn startup output showing server running on port 8080.
 
-- [ ] **Step 2: Create Dockerfile**
-
-Write `Dockerfile`:
-
-```dockerfile
-FROM python:3.12-slim
-
-WORKDIR /app
-COPY pyproject.toml .
-COPY src/ src/
-
-RUN pip install --no-cache-dir ".[server]"
-
-EXPOSE 8080
-
-ENV INTERN_DATA_DIR=/data
-VOLUME /data
-
-CMD ["intern-server"]
-```
-
-- [ ] **Step 3: Create README.md**
+- [ ] **Step 2: Create README.md**
 
 Write `README.md`:
 
@@ -2501,12 +2478,6 @@ Add to your Claude Code MCP settings:
 }
 ```
 
-### Docker
-
-```bash
-docker run -p 8080:8080 -v ~/.intern:/data -e INTERN_API_KEY=xxx my-cheap-intern
-```
-
 ## Configuration
 
 | Env Variable | Default | Description |
@@ -2516,19 +2487,11 @@ docker run -p 8080:8080 -v ~/.intern:/data -e INTERN_API_KEY=xxx my-cheap-intern
 | INTERN_DATA_DIR | ~/.intern | Data directory |
 ```
 
-- [ ] **Step 4: Verify Docker build**
+- [ ] **Step 3: Commit**
 
 ```bash
-docker build -t my-cheap-intern .
-```
-
-Expected: Build succeeds.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add Dockerfile README.md
-git commit -m "feat: Dockerfile and README"
+git add README.md
+git commit -m "feat: README"
 ```
 
 ---
