@@ -90,7 +90,7 @@ SDK 和 Server 同包但分离依赖:
 | 7 | Logger SDK (TDD) | `feat: logger SDK with buffered upload, auto-flush, module-level API` | [x] |
 | 8 | Web Panel | `feat: web panel with project list, run list, run detail pages` | [x] |
 | 9 | CLI + README | `feat: README` | [x] |
-| 10 | 集成冒烟测试 (REST) | `test: end-to-end smoke test` | [ ] |
+| 10 | 集成冒烟测试 (REST) | `test: end-to-end smoke test` | [x] |
 | 11 | 集成冒烟测试 (MCP) | `test: MCP end-to-end smoke test` | [ ] |
 
 ### 每个 Phase 的执行流程
