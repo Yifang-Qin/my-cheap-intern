@@ -28,6 +28,11 @@ def create_app(db_path: str | None = None, api_key: str = "") -> FastAPI:
     app.include_router(ingest_router, prefix="/api", dependencies=[Depends(verify)])
     app.include_router(query_router, prefix="/api", dependencies=[Depends(verify)])
 
+    # Mount MCP server
+    from intern.server.mcp_server import mcp_app, set_api_key
+    set_api_key(api_key)
+    app.mount("/mcp", mcp_app)
+
     return app
 
 
