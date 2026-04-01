@@ -39,7 +39,7 @@ def detect_anomalies(steps: list[int], values: list[float], window: int = 20) ->
     return anomalies
 
 
-def compute_metric_stats(run_id: str, key: str) -> dict:
+def compute_metric_stats(run_id: str, key: str, trend_window: int | None = None, anomaly_window: int | None = None) -> dict:
     conn = get_connection()
     rows = conn.execute(
         "SELECT step, value FROM metric_points WHERE run_id = ? AND key = ? ORDER BY step",
@@ -61,9 +61,10 @@ def compute_metric_stats(run_id: str, key: str) -> dict:
     variance = sum((v - mean) ** 2 for v in values) / n
     std = math.sqrt(variance) if variance > 0 else 0.0
 
-    trend_window = min(50, n)
-    trend = compute_trend(values[-trend_window:])
-    anomaly_steps = detect_anomalies(steps, values)
+    tw = trend_window or max(20, n // 2)
+    aw = anomaly_window or max(20, n // 2)
+    trend = compute_trend(values[-tw:])
+    anomaly_steps = detect_anomalies(steps, values, window=aw)
 
     result = {
         "latest": values[-1],

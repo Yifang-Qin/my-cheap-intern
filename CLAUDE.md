@@ -58,6 +58,7 @@ SDK 和 Server 同包但分离依赖:
 - 不用 ORM，SQLite 直接写 SQL
 - 前端不引入任何构建工具或 JS 框架
 - Python 和 pytest 统一用 `.venv/bin/python` 和 `.venv/bin/python -m pytest`，不要用裸 `python` 或 `pytest`（系统 PATH 里可能找不到）
+- 包管理用 `uv`（安装依赖用 `uv pip install`，不要用 `pip` 或 `python -m pip`）
 - commit message 用英文，简洁描述改动
 
 ## MCP Tools 速查
@@ -84,8 +85,8 @@ SDK 和 Server 同包但分离依赖:
 | 1 | 项目脚手架 + 数据模型 | `scaffold: project structure, pyproject.toml, data models` | [x] |
 | 2 | 数据库层 (TDD) | `feat: database layer with SQLite schema and CRUD operations` | [x] |
 | 3 | FastAPI App + Ingest 路由 (TDD) | `feat: FastAPI app with auth and ingest routes` | [x] |
-| 4 | Query 路由 (TDD) | `feat: query routes for projects, runs, metrics, logs` | [ ] |
-| 5 | 分析模块 (TDD) | `feat: analysis module with trend detection, anomaly detection, summaries` | [ ] |
+| 4 | Query 路由 (TDD) | `feat: query routes for projects, runs, metrics, logs` | [x] |
+| 5 | 分析模块 (TDD) | `feat: analysis module with trend detection, anomaly detection, summaries` | [x] |
 | 6 | MCP Server (TDD) | `feat: MCP server with 6 tools` | [ ] |
 | 7 | Logger SDK (TDD) | `feat: logger SDK with buffered upload, auto-flush, module-level API` | [ ] |
 | 8 | Web Panel | `feat: web panel with project list, run list, run detail pages` | [ ] |
