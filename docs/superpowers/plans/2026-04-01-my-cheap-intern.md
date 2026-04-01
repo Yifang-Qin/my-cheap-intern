@@ -2504,7 +2504,7 @@ git commit -m "feat: README"
 - [ ] **Step 1: Run all tests**
 
 ```bash
-pytest tests/ -v
+.venv/bin/python -m pytest tests/ -v
 ```
 
 Expected: All tests PASS across all test files.
@@ -2556,7 +2556,7 @@ assert len(series) == 20
 print("Smoke test PASSED")
 server.should_exit = True
 PYEOF
-python /tmp/smoke_test.py
+.venv/bin/python /tmp/smoke_test.py
 ```
 
 Expected: `Smoke test PASSED`
