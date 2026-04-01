@@ -23,24 +23,28 @@ def create_run(server: str, api_key: str, project: str, run_id: str | None,
 
 
 def define_metric(server: str, api_key: str, run_id: str, key: str, **kwargs):
-    requests.post(f"{server}/api/runs/{run_id}/metrics/define",
-                  json={"key": key, **kwargs},
-                  headers=_headers(api_key))
+    resp = requests.post(f"{server}/api/runs/{run_id}/metrics/define",
+                         json={"key": key, **kwargs},
+                         headers=_headers(api_key))
+    resp.raise_for_status()
 
 
 def send_metrics(server: str, api_key: str, run_id: str, points: list[dict]):
-    requests.post(f"{server}/api/runs/{run_id}/metrics",
-                  json=points,
-                  headers=_headers(api_key))
+    resp = requests.post(f"{server}/api/runs/{run_id}/metrics",
+                         json=points,
+                         headers=_headers(api_key))
+    resp.raise_for_status()
 
 
 def send_logs(server: str, api_key: str, run_id: str, entries: list[dict]):
-    requests.post(f"{server}/api/runs/{run_id}/logs",
-                  json=entries,
-                  headers=_headers(api_key))
+    resp = requests.post(f"{server}/api/runs/{run_id}/logs",
+                         json=entries,
+                         headers=_headers(api_key))
+    resp.raise_for_status()
 
 
 def update_run(server: str, api_key: str, run_id: str, status: str):
-    requests.patch(f"{server}/api/runs/{run_id}",
-                   json={"status": status},
-                   headers=_headers(api_key))
+    resp = requests.patch(f"{server}/api/runs/{run_id}",
+                          json={"status": status},
+                          headers=_headers(api_key))
+    resp.raise_for_status()
