@@ -1,7 +1,7 @@
 import sqlite3
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 _db_path = ""
 
@@ -141,11 +141,48 @@ def create_run(project_id: str, run_id: str | None, name: str | None,
     return _parse_run(row)
 
 
+STALE_TIMEOUT = timedelta(minutes=5)
+
+
+def _check_stale_running(conn: sqlite3.Connection, run_id: str, run: dict) -> dict:
+    """If a run is 'running' but has no recent activity, mark it as crashed."""
+    if run["status"] != "running":
+        return run
+    last_ts = conn.execute(
+        "SELECT MAX(timestamp) as ts FROM metric_points WHERE run_id = ?", (run_id,)
+    ).fetchone()["ts"]
+    if not last_ts:
+        last_ts = conn.execute(
+            "SELECT MAX(timestamp) as ts FROM log_entries WHERE run_id = ?", (run_id,)
+        ).fetchone()["ts"]
+    if not last_ts:
+        last_ts = run["started_at"]
+    try:
+        last_dt = datetime.fromisoformat(last_ts)
+        if last_dt.tzinfo is None:
+            last_dt = last_dt.replace(tzinfo=timezone.utc)
+    except (ValueError, TypeError):
+        return run
+    if datetime.now(timezone.utc) - last_dt > STALE_TIMEOUT:
+        finished_at = _now()
+        conn.execute("UPDATE runs SET status = 'crashed', finished_at = ? WHERE id = ?",
+                     (finished_at, run_id))
+        conn.commit()
+        run["status"] = "crashed"
+        run["finished_at"] = finished_at
+    return run
+
+
 def get_run(run_id: str) -> dict | None:
     conn = get_connection()
     row = conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
+    if not row:
+        conn.close()
+        return None
+    run = _parse_run(row)
+    run = _check_stale_running(conn, run_id, run)
     conn.close()
-    return _parse_run(row) if row else None
+    return run
 
 
 def list_runs(project_id: str, status: str | None = None) -> list[dict]:
@@ -157,8 +194,10 @@ def list_runs(project_id: str, status: str | None = None) -> list[dict]:
         params.append(status)
     sql += " ORDER BY started_at DESC"
     rows = conn.execute(sql, params).fetchall()
+    runs = [_parse_run(r) for r in rows]
+    runs = [_check_stale_running(conn, r["id"], r) for r in runs]
     conn.close()
-    return [_parse_run(r) for r in rows]
+    return runs
 
 
 def update_run_status(run_id: str, status: str):

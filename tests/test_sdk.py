@@ -164,3 +164,50 @@ def test_sdk_step_auto_increment():
         assert steps == [0, 1, 2]
 
         run._finished = True
+
+
+def test_sdk_cleanup_marks_crashed():
+    """_cleanup sends status=crashed when finish() was not called."""
+    from intern.sdk.client import Run
+    with patch("intern.sdk.api.create_project"), \
+         patch("intern.sdk.api.create_run") as mock_create, \
+         patch("intern.sdk.api.send_metrics"), \
+         patch("intern.sdk.api.send_logs"), \
+         patch("intern.sdk.api.update_run") as mock_update:
+        mock_create.return_value = {"id": "run-1", "name": "run-1"}
+        run = Run("http://localhost:8080", "key", "proj", name="run-1")
+        run.log({"loss": 1.0}, step=0)
+        # Simulate process exit without finish()
+        run._cleanup()
+        mock_update.assert_called_once_with("http://localhost:8080", "key", "run-1", "crashed")
+
+
+def test_sdk_cleanup_noop_after_finish():
+    """_cleanup does nothing if finish() was already called."""
+    from intern.sdk.client import Run
+    with patch("intern.sdk.api.create_project"), \
+         patch("intern.sdk.api.create_run") as mock_create, \
+         patch("intern.sdk.api.send_metrics"), \
+         patch("intern.sdk.api.send_logs"), \
+         patch("intern.sdk.api.update_run") as mock_update:
+        mock_create.return_value = {"id": "run-1", "name": "run-1"}
+        run = Run("http://localhost:8080", "key", "proj", name="run-1")
+        run.finish()
+        mock_update.assert_called_once_with("http://localhost:8080", "key", "run-1", "finished")
+        mock_update.reset_mock()
+        run._cleanup()
+        mock_update.assert_not_called()
+
+
+def test_sdk_cleanup_tolerates_server_down():
+    """_cleanup swallows exceptions if server is unreachable."""
+    from intern.sdk.client import Run
+    with patch("intern.sdk.api.create_project"), \
+         patch("intern.sdk.api.create_run") as mock_create, \
+         patch("intern.sdk.api.send_metrics"), \
+         patch("intern.sdk.api.send_logs"), \
+         patch("intern.sdk.api.update_run", side_effect=Exception("connection refused")):
+        mock_create.return_value = {"id": "run-1", "name": "run-1"}
+        run = Run("http://localhost:8080", "key", "proj", name="run-1")
+        # Should not raise
+        run._cleanup()

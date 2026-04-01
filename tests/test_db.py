@@ -1,9 +1,11 @@
 import pytest
+from unittest.mock import patch
+from datetime import datetime, timezone, timedelta
 from intern.server.db import (
     init_db, create_project, get_project_by_name, list_projects,
     create_run, get_run, list_runs, update_run_status, search_runs,
     define_metric, insert_metric_points, get_metric_series, get_metric_metas,
-    insert_logs, get_logs,
+    insert_logs, get_logs, STALE_TIMEOUT,
 )
 
 
@@ -184,3 +186,65 @@ def test_log_operations(db):
 
     limited = get_logs("r1", limit=2)
     assert len(limited) == 2
+
+
+# --- Stale run detection (lazy crash check) ---
+
+def test_stale_run_marked_crashed_on_get(db):
+    """A running run with no recent activity is auto-marked as crashed."""
+    p = create_project("proj")
+    r = create_run(p["id"], "r1", "run", {}, [])
+    old_ts = (datetime.now(timezone.utc) - STALE_TIMEOUT - timedelta(minutes=1)).isoformat()
+    insert_metric_points("r1", [{"key": "loss", "step": 0, "value": 1.0, "timestamp": old_ts}])
+
+    fetched = get_run("r1")
+    assert fetched["status"] == "crashed"
+    assert fetched["finished_at"] is not None
+
+
+def test_active_run_stays_running(db):
+    """A running run with recent activity is NOT marked as crashed."""
+    p = create_project("proj")
+    create_run(p["id"], "r1", "run", {}, [])
+    fresh_ts = datetime.now(timezone.utc).isoformat()
+    insert_metric_points("r1", [{"key": "loss", "step": 0, "value": 1.0, "timestamp": fresh_ts}])
+
+    fetched = get_run("r1")
+    assert fetched["status"] == "running"
+
+
+def test_stale_run_detected_in_list_runs(db):
+    """list_runs also detects stale running runs."""
+    p = create_project("proj")
+    create_run(p["id"], "r1", "run-1", {}, [])
+    create_run(p["id"], "r2", "run-2", {}, [])
+    old_ts = (datetime.now(timezone.utc) - STALE_TIMEOUT - timedelta(minutes=1)).isoformat()
+    insert_metric_points("r1", [{"key": "loss", "step": 0, "value": 1.0, "timestamp": old_ts}])
+    fresh_ts = datetime.now(timezone.utc).isoformat()
+    insert_metric_points("r2", [{"key": "loss", "step": 0, "value": 1.0, "timestamp": fresh_ts}])
+
+    runs = list_runs(p["id"])
+    by_id = {r["id"]: r for r in runs}
+    assert by_id["r1"]["status"] == "crashed"
+    assert by_id["r2"]["status"] == "running"
+
+
+def test_stale_run_no_data_uses_started_at(db):
+    """A running run with no metrics/logs falls back to started_at for staleness."""
+    p = create_project("proj")
+    create_run(p["id"], "r1", "run", {}, [])
+    # started_at is now(), which is fresh — should stay running
+    fetched = get_run("r1")
+    assert fetched["status"] == "running"
+
+
+def test_finished_run_not_rechecked(db):
+    """A finished run is never re-evaluated for staleness."""
+    p = create_project("proj")
+    create_run(p["id"], "r1", "run", {}, [])
+    update_run_status("r1", "finished")
+    old_ts = (datetime.now(timezone.utc) - STALE_TIMEOUT - timedelta(minutes=10)).isoformat()
+    insert_metric_points("r1", [{"key": "loss", "step": 0, "value": 1.0, "timestamp": old_ts}])
+
+    fetched = get_run("r1")
+    assert fetched["status"] == "finished"

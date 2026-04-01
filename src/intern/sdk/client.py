@@ -93,3 +93,7 @@ class Run:
             self.flush()
             if self._timer:
                 self._timer.cancel()
+            try:
+                api.update_run(self.server, self.api_key, self.run_id, "crashed")
+            except Exception:
+                pass
