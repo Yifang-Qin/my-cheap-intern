@@ -8,10 +8,11 @@ from intern.sdk import api
 class Run:
     def __init__(self, server: str, api_key: str, project: str, name: str | None = None,
                  run_id: str | None = None, config: dict | None = None,
-                 tags: list[str] | None = None):
+                 tags: list[str] | None = None, buffer_size: int = 1):
         self.server = server
         self.api_key = api_key
         self._step = 0
+        self._buffer_size = max(1, buffer_size)
         self._metric_buffer: list[dict] = []
         self._log_buffer: list[dict] = []
         self._lock = threading.Lock()
@@ -23,7 +24,8 @@ class Run:
         self.run_id = result["id"]
         self.name = result["name"]
 
-        self._start_flush_timer()
+        if self._buffer_size > 1:
+            self._start_flush_timer()
         atexit.register(self._cleanup)
 
     def define_metric(self, key: str, **kwargs):
@@ -41,7 +43,7 @@ class Run:
                 self._metric_buffer.append({
                     "key": key, "step": step, "value": float(value), "timestamp": now,
                 })
-            if len(self._metric_buffer) >= 50:
+            if len(self._metric_buffer) >= self._buffer_size:
                 self._flush_locked()
 
     def log_text(self, content: str, level: str = "info", step: int | None = None):
@@ -50,7 +52,7 @@ class Run:
             self._log_buffer.append({
                 "step": step, "level": level, "content": content, "timestamp": now,
             })
-            if len(self._log_buffer) >= 50:
+            if len(self._log_buffer) >= self._buffer_size:
                 self._flush_locked()
 
     def _flush_locked(self):

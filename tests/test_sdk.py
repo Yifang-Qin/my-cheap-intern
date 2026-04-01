@@ -31,7 +31,8 @@ def test_sdk_api_create_project(server):
         mock_req.post.assert_called_once()
 
 
-def test_sdk_client_buffering():
+def test_sdk_client_immediate_flush_by_default():
+    """Default buffer_size=1 flushes on every log call."""
     from intern.sdk.client import Run
     with patch("intern.sdk.api.create_project"), \
          patch("intern.sdk.api.create_run") as mock_create, \
@@ -39,6 +40,25 @@ def test_sdk_client_buffering():
          patch("intern.sdk.api.send_logs"):
         mock_create.return_value = {"id": "run-1", "name": "run-1"}
         run = Run("http://localhost:8080", "key", "proj", name="run-1")
+        run.log({"loss": 1.0}, step=0)
+        assert mock_send.call_count == 1
+        run.log({"loss": 0.5}, step=1)
+        assert mock_send.call_count == 2
+        # No timer should be running for buffer_size=1
+        assert run._timer is None
+
+        run._finished = True
+
+
+def test_sdk_client_buffering():
+    """With buffer_size > 1, logs are batched until buffer is full."""
+    from intern.sdk.client import Run
+    with patch("intern.sdk.api.create_project"), \
+         patch("intern.sdk.api.create_run") as mock_create, \
+         patch("intern.sdk.api.send_metrics") as mock_send, \
+         patch("intern.sdk.api.send_logs"):
+        mock_create.return_value = {"id": "run-1", "name": "run-1"}
+        run = Run("http://localhost:8080", "key", "proj", name="run-1", buffer_size=50)
         # Log fewer than 50 items - should not flush
         for i in range(10):
             run.log({"loss": float(i)}, step=i)
@@ -56,14 +76,15 @@ def test_sdk_client_buffering():
             run._timer.cancel()
 
 
-def test_sdk_client_auto_flush_on_50():
+def test_sdk_client_auto_flush_on_buffer_full():
+    """Buffer auto-flushes when buffer_size is reached."""
     from intern.sdk.client import Run
     with patch("intern.sdk.api.create_project"), \
          patch("intern.sdk.api.create_run") as mock_create, \
          patch("intern.sdk.api.send_metrics") as mock_send, \
          patch("intern.sdk.api.send_logs"):
         mock_create.return_value = {"id": "run-1", "name": "run-1"}
-        run = Run("http://localhost:8080", "key", "proj", name="run-1")
+        run = Run("http://localhost:8080", "key", "proj", name="run-1", buffer_size=50)
         for i in range(55):
             run.log({"loss": float(i)}, step=i)
         # Should have flushed once at 50, leaving 5 in buffer
@@ -85,8 +106,9 @@ def test_sdk_client_finish():
         mock_create.return_value = {"id": "run-1", "name": "run-1"}
         run = Run("http://localhost:8080", "key", "proj", name="run-1")
         run.log({"loss": 1.0}, step=0)
+        # With default buffer_size=1, already flushed once on log
+        assert mock_send.call_count == 1
         run.finish()
-        mock_send.assert_called_once()
         mock_update.assert_called_once_with("http://localhost:8080", "key", "run-1", "finished")
 
 
@@ -99,7 +121,7 @@ def test_sdk_client_log_text():
         mock_create.return_value = {"id": "run-1", "name": "run-1"}
         run = Run("http://localhost:8080", "key", "proj", name="run-1")
         run.log_text("hello", level="warning", step=5)
-        run.flush()
+        # Default buffer_size=1, should flush immediately
         mock_logs.assert_called_once()
         entries = mock_logs.call_args[0][3]
         assert len(entries) == 1
@@ -107,8 +129,6 @@ def test_sdk_client_log_text():
         assert entries[0]["content"] == "hello"
 
         run._finished = True
-        if run._timer:
-            run._timer.cancel()
 
 
 def test_sdk_module_api():
@@ -137,11 +157,10 @@ def test_sdk_step_auto_increment():
         run.log({"a": 1.0})
         run.log({"a": 2.0})
         run.log({"a": 3.0})
-        run.flush()
-        points = mock_send.call_args[0][3]
-        steps = [p["step"] for p in points]
+        # Each log flushes immediately with default buffer_size=1
+        assert mock_send.call_count == 3
+        all_points = [mock_send.call_args_list[i][0][3][0] for i in range(3)]
+        steps = [p["step"] for p in all_points]
         assert steps == [0, 1, 2]
 
         run._finished = True
-        if run._timer:
-            run._timer.cancel()

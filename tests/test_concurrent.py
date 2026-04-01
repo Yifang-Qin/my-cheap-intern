@@ -29,13 +29,12 @@ def concurrent_server():
 def _run_writer(server_url: str, project: str, run_name: str, n_steps: int, errors: list):
     """Worker that creates a run and writes metrics."""
     try:
-        import intern
-        run = intern.init(project=project, name=run_name,
-                          config={"worker": run_name}, tags=["concurrent"],
-                          server=server_url, api_key="conc")
+        from intern.sdk.client import Run
+        run = Run(server=server_url, api_key="conc", project=project,
+                  name=run_name, config={"worker": run_name}, tags=["concurrent"])
         for i in range(n_steps):
-            intern.log({"loss": float(n_steps - i)}, step=i)
-        intern.finish()
+            run.log({"loss": float(n_steps - i)}, step=i)
+        run.finish()
     except Exception as e:
         errors.append((run_name, e))
 

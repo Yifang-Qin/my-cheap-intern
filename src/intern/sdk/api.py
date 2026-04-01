@@ -9,6 +9,7 @@ def create_project(server: str, api_key: str, name: str, description: str = "") 
     resp = requests.post(f"{server}/api/projects",
                          json={"name": name, "description": description},
                          headers=_headers(api_key))
+    resp.raise_for_status()
     return resp.json()
 
 
@@ -17,6 +18,7 @@ def create_run(server: str, api_key: str, project: str, run_id: str | None,
     resp = requests.post(f"{server}/api/projects/{project}/runs",
                          json={"id": run_id, "name": name, "config": config, "tags": tags},
                          headers=_headers(api_key))
+    resp.raise_for_status()
     return resp.json()
 
 

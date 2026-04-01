@@ -20,11 +20,11 @@ class TestServerUnreachable:
 
     def test_flush_tolerates_server_down(self):
         """Once a Run is created, flush should not crash if server goes away."""
-        # Create a Run with mocked init calls
+        # Create a Run with mocked init calls and buffer_size > 1 so log() buffers
         with patch.object(api, "create_project", return_value={}), \
              patch.object(api, "create_run", return_value={"id": "r1", "name": "run-1"}):
             run = Run(server="http://127.0.0.1:19999", api_key="key",
-                      project="test", name="run-1")
+                      project="test", name="run-1", buffer_size=50)
 
         # Log some data — this just buffers, no network
         run.log({"loss": 1.0}, step=0)
@@ -40,12 +40,24 @@ class TestServerUnreachable:
 
         run._finished = True  # prevent timer from firing
 
+    def test_immediate_log_raises_when_server_down(self):
+        """With default buffer_size=1, log() itself raises on server down."""
+        with patch.object(api, "create_project", return_value={}), \
+             patch.object(api, "create_run", return_value={"id": "r1", "name": "run-1"}):
+            run = Run(server="http://127.0.0.1:19999", api_key="key",
+                      project="test", name="run-1")
+
+        with pytest.raises(requests.ConnectionError):
+            run.log({"loss": 1.0}, step=0)
+
+        run._finished = True
+
     def test_finish_tolerates_server_down(self):
         """finish() should propagate the error but not hang."""
         with patch.object(api, "create_project", return_value={}), \
              patch.object(api, "create_run", return_value={"id": "r1", "name": "run-1"}):
             run = Run(server="http://127.0.0.1:19999", api_key="key",
-                      project="test", name="run-1")
+                      project="test", name="run-1", buffer_size=50)
 
         run.log({"loss": 1.0}, step=0)
         with pytest.raises(requests.ConnectionError):
@@ -74,11 +86,12 @@ class TestServerMidwayRestart:
         t.start()
         time.sleep(0.5)
 
-        # Init SDK
+        # Init SDK with buffer_size > 1 to test buffered resilience
         import intern
         run = intern.init(project="resilience", name="run-1",
                           config={}, tags=[],
-                          server="http://127.0.0.1:19876", api_key="test")
+                          server="http://127.0.0.1:19876", api_key="test",
+                          buffer_size=50)
         run.log({"loss": 1.0}, step=0)
         run.flush()
 
