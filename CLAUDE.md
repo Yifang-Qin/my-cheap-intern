@@ -89,7 +89,7 @@ SDK 和 Server 同包但分离依赖:
 | 5 | 分析模块 (TDD) | `feat: analysis module with trend detection, anomaly detection, summaries` | [x] |
 | 6 | MCP Server (TDD) | `feat: MCP server with 6 tools` | [x] |
 | 7 | Logger SDK (TDD) | `feat: logger SDK with buffered upload, auto-flush, module-level API` | [x] |
-| 8 | Web Panel | `feat: web panel with project list, run list, run detail pages` | [ ] |
+| 8 | Web Panel | `feat: web panel with project list, run list, run detail pages` | [x] |
 | 9 | CLI + Dockerfile + README | `feat: Dockerfile and README` | [ ] |
 | 10 | 集成冒烟测试 | `test: end-to-end smoke test` | [ ] |
 
