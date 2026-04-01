@@ -2,6 +2,8 @@
 
 AI-native experiment tracking for ML researchers. Like a cheap intern who reads all your dashboards and summarizes them.
 
+**New here?** Read the [Getting Started Guide](manual/getting-started.md) ([中文版](manual/getting-started-zh.md)) for a step-by-step walkthrough.
+
 ## Quick Start
 
 ### Install
@@ -100,17 +102,15 @@ Add to your Claude Code MCP settings:
 
 my-cheap-intern ships with Claude Code skills that teach your AI assistant how to use the SDK and query experiments. This is useful during vibe coding — the assistant won't know intern's API otherwise.
 
-### Option 1: Install Skills (recommended)
+### Option 1: `intern-cli init` (recommended)
 
-Copy skills into your experiment project or global Claude config:
+Run in your experiment project root:
 
 ```bash
-# Per-project (only this codebase)
-cp -r /path/to/my-cheap-intern/.claude/skills/intern-* .claude/skills/
-
-# Or global (all projects)
-cp -r /path/to/my-cheap-intern/.claude/skills/intern-* ~/.claude/skills/
+intern-cli init
 ```
+
+This creates `.claude/skills/intern-logger/` and `.claude/skills/intern-reader/`, and appends a short section to `CLAUDE.md`. Safe to run multiple times — it skips existing files.
 
 Two skills are provided:
 - **intern-logger** — SDK API reference. Activates when the assistant sees "logger", "experiment tracking", "intern", etc.
@@ -129,6 +129,6 @@ Server: http://localhost:8080 | API key: (your key here)
 SDK usage: `import intern` then `intern.init(project, name, config, tags, server, api_key)`,
 `intern.log({"metric": value}, step=N)`, `intern.log_text("message")`, `intern.finish()`.
 
-For detailed SDK API, read the skill file at /path/to/my-cheap-intern/.claude/skills/intern-logger/SKILL.md
-For MCP query patterns, read /path/to/my-cheap-intern/.claude/skills/intern-reader/SKILL.md
+For detailed SDK API, read the skill file at .claude/skills/intern-logger/SKILL.md (installed by `intern-cli init`)
+For MCP query patterns, read .claude/skills/intern-reader/SKILL.md (installed by `intern-cli init`)
 ```

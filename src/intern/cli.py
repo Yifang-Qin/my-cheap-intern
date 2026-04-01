@@ -9,7 +9,7 @@ CLAUDE_MD_SNIPPET = """\
 
 ## Experiment Tracking
 
-This project uses [my-cheap-intern](https://github.com/user/my-cheap-intern) for experiment logging.
+This project uses [my-cheap-intern](https://github.com/Yifang-Qin/my-cheap-intern) for experiment logging.
 
 - SDK: `import intern` → `intern.init()` / `intern.log()` / `intern.finish()`
 - Server: set `INTERN_SERVER` and `INTERN_API_KEY` env vars, or pass them to `intern.init()`
