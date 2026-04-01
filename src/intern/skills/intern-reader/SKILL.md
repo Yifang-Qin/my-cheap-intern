@@ -5,7 +5,14 @@ description: "Guide for querying experiment data via my-cheap-intern MCP tools. 
 
 # my-cheap-intern Experiment Reader
 
-Query experiment data through 6 MCP tools. Requires MCP connection to the intern server.
+Query experiment data through 6 MCP tools.
+
+## MCP Connection
+
+- **Server name**: `my-cheap-intern` (configured by `intern-cli init`)
+- **Tool name pattern** (Claude Code): `mcp__my-cheap-intern__{tool_name}`
+  - Example: `mcp__my-cheap-intern__list_projects`, `mcp__my-cheap-intern__search_runs`
+- **Pre-check**: If `mcp__my-cheap-intern__list_projects` is not in your available tools, the server is not connected. Tell the user to start the server (`intern-server launch`) and run `intern-cli init` in their project to configure `.mcp.json`.
 
 ## MCP Tools Reference
 

@@ -1,14 +1,17 @@
 """intern-cli: client-side utilities for my-cheap-intern."""
 import argparse
 import json
+import re
 import shutil
 from pathlib import Path
 
 SKILLS_DIR = Path(__file__).parent / "skills"
 
-CLAUDE_MD_SNIPPET = """\
+MARKER_BEGIN = "<!-- intern:begin -->"
+MARKER_END = "<!-- intern:end -->"
 
-## Experiment Tracking
+CLAUDE_MD_SNIPPET = f"""{MARKER_BEGIN}
+## Intern Experiment Tracking
 
 This project uses [my-cheap-intern](https://github.com/Yifang-Qin/my-cheap-intern) for experiment logging.
 
@@ -16,9 +19,8 @@ This project uses [my-cheap-intern](https://github.com/Yifang-Qin/my-cheap-inter
 - Server: set `INTERN_SERVER` and `INTERN_API_KEY` env vars, or pass them to `intern.init()`
 - Claude Code skills `intern-logger` and `intern-reader` are installed in `.claude/skills/` — they contain full API reference and MCP query patterns.
 - MCP connection is configured in `.mcp.json` — your AI assistant can query experiments directly.
+{MARKER_END}
 """
-
-MARKER = "## Experiment Tracking"
 MCP_SERVER_KEY = "my-cheap-intern"
 
 
@@ -39,16 +41,22 @@ def cmd_init(args):
             shutil.copytree(skill_dir, dest)
             print(f"  created {dest.relative_to(cwd)}")
 
-    # 2. Append to CLAUDE.md
+    # 2. Upsert CLAUDE.md section
     claude_md = cwd / "CLAUDE.md"
     existing = claude_md.read_text() if claude_md.exists() else ""
 
-    if MARKER in existing:
-        print(f"  skip CLAUDE.md (already contains '{MARKER}')")
+    if MARKER_BEGIN in existing:
+        pattern = re.escape(MARKER_BEGIN) + r".*?" + re.escape(MARKER_END)
+        updated = re.sub(pattern, CLAUDE_MD_SNIPPET.strip(), existing, flags=re.DOTALL)
+        if updated == existing:
+            print(f"  skip CLAUDE.md (already up to date)")
+        else:
+            claude_md.write_text(updated)
+            print(f"  updated intern section in CLAUDE.md")
     else:
         with open(claude_md, "a") as f:
-            f.write(CLAUDE_MD_SNIPPET)
-        print(f"  appended experiment tracking section to CLAUDE.md")
+            f.write("\n" + CLAUDE_MD_SNIPPET)
+        print(f"  appended intern section to CLAUDE.md")
 
     # 3. Write .mcp.json
     mcp_json = cwd / ".mcp.json"
