@@ -82,7 +82,7 @@ SDK 和 Server 同包但分离依赖:
 |-------|------|---------------|--------|
 | 1 | 项目脚手架 + 数据模型 | `scaffold: project structure, pyproject.toml, data models` | [x] |
 | 2 | 数据库层 (TDD) | `feat: database layer with SQLite schema and CRUD operations` | [x] |
-| 3 | FastAPI App + Ingest 路由 (TDD) | `feat: FastAPI app with auth and ingest routes` | [ ] |
+| 3 | FastAPI App + Ingest 路由 (TDD) | `feat: FastAPI app with auth and ingest routes` | [x] |
 | 4 | Query 路由 (TDD) | `feat: query routes for projects, runs, metrics, logs` | [ ] |
 | 5 | 分析模块 (TDD) | `feat: analysis module with trend detection, anomaly detection, summaries` | [ ] |
 | 6 | MCP Server (TDD) | `feat: MCP server with 6 tools` | [ ] |
