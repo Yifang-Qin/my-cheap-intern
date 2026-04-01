@@ -49,3 +49,9 @@ th { background: #f8fafc; font-weight: 600; font-size: 0.85em; text-transform: u
 
 .filters { display: flex; gap: 12px; margin-bottom: 16px; align-items: center; }
 .filters select, .filters input { padding: 6px 12px; border: 1px solid #d1d5db; border-radius: 6px; }
+
+.btn-delete {
+    padding: 4px 10px; border: none; border-radius: 4px; cursor: pointer;
+    font-size: 0.8em; background: #fee2e2; color: #991b1b;
+}
+.btn-delete:hover { background: #fca5a5; }

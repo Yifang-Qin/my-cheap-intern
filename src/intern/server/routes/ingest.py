@@ -57,3 +57,23 @@ def write_logs(run_id: str, entries: list[LogEntryIn]):
 def update_run(run_id: str, req: UpdateRunRequest):
     db.update_run_status(run_id, req.status)
     return {"status": "ok"}
+
+
+@router.delete("/runs/{run_id}")
+def delete_run(run_id: str):
+    run = db.get_run(run_id)
+    if not run:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Run not found")
+    db.delete_run(run_id)
+    return {"status": "ok"}
+
+
+@router.delete("/projects/{project}")
+def delete_project(project: str):
+    p = db.get_project_by_name(project)
+    if not p:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Project not found")
+    db.delete_project(p["id"])
+    return {"status": "ok"}

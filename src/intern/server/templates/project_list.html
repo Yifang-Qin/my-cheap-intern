@@ -4,7 +4,7 @@
 <h1>Projects</h1>
 <table>
     <thead>
-        <tr><th>Project</th><th>Runs</th><th>Last Active</th></tr>
+        <tr><th>Project</th><th>Runs</th><th>Last Active</th><th></th></tr>
     </thead>
     <tbody>
         {% for p in projects %}
@@ -12,10 +12,17 @@
             <td><a href="/project/{{ p.name }}">{{ p.name }}</a></td>
             <td>{{ p.run_count }}</td>
             <td>{{ p.last_active_at or '—' }}</td>
+            <td>
+                <button class="btn-delete"
+                        hx-delete="/api/projects/{{ p.name }}"
+                        hx-confirm="确认删除项目 {{ p.name }}？所有 runs 将被一并删除"
+                        hx-target="closest tr"
+                        hx-swap="outerHTML">Delete</button>
+            </td>
         </tr>
         {% endfor %}
         {% if not projects %}
-        <tr><td colspan="3">No projects yet.</td></tr>
+        <tr><td colspan="4">No projects yet.</td></tr>
         {% endif %}
     </tbody>
 </table>

@@ -15,7 +15,7 @@
 
 <table>
     <thead>
-        <tr><th>Run</th><th>Status</th><th>Tags</th><th>Started</th></tr>
+        <tr><th>Run</th><th>Status</th><th>Tags</th><th>Started</th><th></th></tr>
     </thead>
     <tbody>
         {% for r in runs %}
@@ -24,10 +24,17 @@
             <td><span class="badge badge-{{ r.status }}">{{ r.status }}</span></td>
             <td>{% for t in r.tags %}<span class="tag">{{ t }}</span>{% endfor %}</td>
             <td>{{ r.started_at[:19] }}</td>
+            <td>
+                <button class="btn-delete"
+                        hx-delete="/api/runs/{{ r.id }}"
+                        hx-confirm="确认删除 run {{ r.name }}？"
+                        hx-target="closest tr"
+                        hx-swap="outerHTML">Delete</button>
+            </td>
         </tr>
         {% endfor %}
         {% if not runs %}
-        <tr><td colspan="4">No runs found.</td></tr>
+        <tr><td colspan="5">No runs found.</td></tr>
         {% endif %}
     </tbody>
 </table>
