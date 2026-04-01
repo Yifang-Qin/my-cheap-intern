@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}{{ run.name }} — my-cheap-intern{% endblock %}
+{% block content %}
+<h1>{{ run.name }} <span class="badge badge-{{ run.status }}">{{ run.status }}</span></h1>
+
+<h2>Config</h2>
+<div class="config-block">{{ config_json }}</div>
+
+<h2>Metrics</h2>
+<div class="chart-grid">
+    {% for key, series in metrics_data.items() %}
+    <div class="chart-card">
+        <h3>{{ key }}</h3>
+        <canvas id="chart-{{ loop.index }}"></canvas>
+    </div>
+    {% endfor %}
+</div>
+
+<h2>Logs</h2>
+<div class="filters">
+    <select hx-get="/run/{{ run.id }}" hx-target="body" name="log_level" hx-push-url="true">
+        <option value="">All levels</option>
+        <option value="info">Info</option>
+        <option value="warning">Warning</option>
+        <option value="error">Error</option>
+    </select>
+</div>
+<div>
+    {% for log in logs %}
+    <div class="log-entry {{ log.level }}">
+        <span class="log-level">{{ log.level }}</span>
+        {% if log.step is not none %}[step {{ log.step }}]{% endif %}
+        {{ log.content }}
+    </div>
+    {% endfor %}
+    {% if not logs %}
+    <p>No logs.</p>
+    {% endif %}
+</div>
+
+<script>
+{% for key, series in metrics_data.items() %}
+new Chart(document.getElementById('chart-{{ loop.index }}'), {
+    type: 'line',
+    data: {
+        labels: {{ series | map(attribute='step') | list | tojson }},
+        datasets: [{
+            label: '{{ key }}',
+            data: {{ series | map(attribute='value') | list | tojson }},
+            borderColor: 'rgb(37, 99, 235)',
+            borderWidth: 1.5,
+            pointRadius: 0,
+            tension: 0.1,
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: { x: { title: { display: true, text: 'step' } } },
+        plugins: { legend: { display: false } },
+    }
+});
+{% endfor %}
+</script>
+{% endblock %}

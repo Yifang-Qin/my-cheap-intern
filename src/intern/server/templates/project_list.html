@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Projects — my-cheap-intern{% endblock %}
+{% block content %}
+<h1>Projects</h1>
+<table>
+    <thead>
+        <tr><th>Project</th><th>Runs</th><th>Last Active</th></tr>
+    </thead>
+    <tbody>
+        {% for p in projects %}
+        <tr>
+            <td><a href="/project/{{ p.name }}">{{ p.name }}</a></td>
+            <td>{{ p.run_count }}</td>
+            <td>{{ p.last_active_at or '—' }}</td>
+        </tr>
+        {% endfor %}
+        {% if not projects %}
+        <tr><td colspan="3">No projects yet.</td></tr>
+        {% endif %}
+    </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ project.name }} — my-cheap-intern{% endblock %}
+{% block content %}
+<h1>{{ project.name }}</h1>
+
+<div class="filters">
+    <select hx-get="/project/{{ project.name }}" hx-target="body" name="status"
+            hx-include="[name='status']" hx-push-url="true">
+        <option value="">All statuses</option>
+        <option value="running" {% if status_filter == 'running' %}selected{% endif %}>Running</option>
+        <option value="finished" {% if status_filter == 'finished' %}selected{% endif %}>Finished</option>
+        <option value="crashed" {% if status_filter == 'crashed' %}selected{% endif %}>Crashed</option>
+    </select>
+</div>
+
+<table>
+    <thead>
+        <tr><th>Run</th><th>Status</th><th>Tags</th><th>Started</th></tr>
+    </thead>
+    <tbody>
+        {% for r in runs %}
+        <tr>
+            <td><a href="/run/{{ r.id }}">{{ r.name }}</a></td>
+            <td><span class="badge badge-{{ r.status }}">{{ r.status }}</span></td>
+            <td>{% for t in r.tags %}<span class="tag">{{ t }}</span>{% endfor %}</td>
+            <td>{{ r.started_at[:19] }}</td>
+        </tr>
+        {% endfor %}
+        {% if not runs %}
+        <tr><td colspan="4">No runs found.</td></tr>
+        {% endif %}
+    </tbody>
+</table>
+{% endblock %}
