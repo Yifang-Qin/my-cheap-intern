@@ -246,6 +246,14 @@ def define_metric(run_id: str, key: str, type: str = "scalar", direction: str = 
 def insert_metric_points(run_id: str, points: list[dict]):
     conn = get_connection()
     now = _now()
+    # Auto-define metric_meta for any new keys (INSERT OR IGNORE keeps existing definitions)
+    seen_keys = {p["key"] for p in points}
+    for key in seen_keys:
+        conn.execute(
+            "INSERT OR IGNORE INTO metric_meta (run_id, key, type, direction, description, aggregation) "
+            "VALUES (?, ?, 'scalar', 'neutral', '', 'last')",
+            (run_id, key),
+        )
     for p in points:
         conn.execute(
             "INSERT OR REPLACE INTO metric_points (run_id, key, step, value, timestamp) "
