@@ -156,11 +156,10 @@ def main():
     db_path = str(Path(data_dir) / "data.db")
 
     app = create_app(db_path=db_path, api_key=api_key)
-    print(f"intern-server | port={port} data_dir={data_dir} auth={'on' if api_key else 'off'}")
-    panel_url = f"http://localhost:{port}/"
-    if api_key:
-        panel_url += f"?token={api_key}"
-    print(f"  Web Panel:  {panel_url}")
-    print(f"  MCP (HTTP): http://localhost:{port}/mcp/  (recommended, type: http)")
-    print(f"  MCP (SSE):  http://localhost:{port}/mcp/sse  (legacy, type: sse)")
+    print(f"\nintern-server | port={port} data_dir={data_dir}")
+    print(f"  API Key:    {api_key}")
+    print(f"  Web Panel:  http://localhost:{port}/?token={api_key}")
+    print(f"  MCP (HTTP): http://localhost:{port}/mcp/")
+    print(f"  MCP (SSE):  http://localhost:{port}/mcp/sse")
+    print()
     uvicorn.run(app, host=args.host, port=port)
