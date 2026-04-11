@@ -147,7 +147,8 @@ def main():
         args.data_dir = None
         args.host = "0.0.0.0"
 
-    api_key = args.key or os.environ.get("INTERN_API_KEY", "")
+    import secrets
+    api_key = args.key or os.environ.get("INTERN_API_KEY", "") or secrets.token_urlsafe(16)
     port = args.port or int(os.environ.get("INTERN_PORT", "8080"))
     data_dir = args.data_dir or os.environ.get("INTERN_DATA_DIR", str(Path.home() / ".intern"))
 
