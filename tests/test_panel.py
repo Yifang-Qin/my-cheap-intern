@@ -1,17 +1,34 @@
+TOKEN = "test-key"
+
+
 def test_project_list_page(client, sample_project):
-    resp = client.get("/")
+    resp = client.get(f"/?token={TOKEN}")
     assert resp.status_code == 200
     assert "test-project" in resp.text
 
 
+def test_panel_requires_auth(client, sample_project):
+    resp = client.get("/")
+    assert resp.status_code == 401
+
+
+def test_panel_cookie_auth(client, sample_project):
+    # First request with token sets cookie
+    resp = client.get(f"/?token={TOKEN}")
+    assert resp.status_code == 200
+    # Subsequent request uses cookie (TestClient persists cookies)
+    resp = client.get("/")
+    assert resp.status_code == 200
+
+
 def test_run_list_page(client, sample_run):
-    resp = client.get("/project/test-project")
+    resp = client.get(f"/project/test-project?token={TOKEN}")
     assert resp.status_code == 200
     assert "test-run" in resp.text
 
 
 def test_run_list_page_status_filter(client, sample_run):
-    resp = client.get("/project/test-project?status=finished")
+    resp = client.get(f"/project/test-project?status=finished&token={TOKEN}")
     assert resp.status_code == 200
     # run is still "running", so it should not appear
     assert "test-run" not in resp.text
@@ -29,7 +46,7 @@ def test_run_detail_page(client, sample_run):
         {"step": 0, "level": "info", "content": "started training", "timestamp": "2026-01-01T00:00:00Z"},
     ])
 
-    resp = client.get(f"/run/{run_id}")
+    resp = client.get(f"/run/{run_id}?token={TOKEN}")
     assert resp.status_code == 200
     assert "test-run" in resp.text
     assert "loss" in resp.text

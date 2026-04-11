@@ -18,6 +18,17 @@ def _make_verify_api_key(api_key: str):
     return verify_api_key
 
 
+def _make_verify_panel(api_key: str):
+    """Panel auth: accepts ?token= query param or intern_token cookie."""
+    def verify_panel(request: Request):
+        if not api_key:
+            return
+        token = request.query_params.get("token") or request.cookies.get("intern_token")
+        if token != api_key:
+            raise HTTPException(status_code=401, detail="Unauthorized. Append ?token=YOUR_KEY to the URL.")
+    return verify_panel
+
+
 def create_app(db_path: str | None = None, api_key: str = "") -> FastAPI:
     from intern.server.mcp_server import create_session_manager
 
@@ -41,28 +52,41 @@ def create_app(db_path: str | None = None, api_key: str = "") -> FastAPI:
     app.include_router(ingest_router, prefix="/api", dependencies=[Depends(verify)])
     app.include_router(query_router, prefix="/api", dependencies=[Depends(verify)])
 
-    # Web panel routes (no auth)
+    # Web panel routes (token auth via query param or cookie)
     from intern.server import db as _db
+    from fastapi.responses import Response, RedirectResponse
     _pkg_dir = Path(__file__).parent
     templates = Jinja2Templates(directory=str(_pkg_dir / "templates"))
     app.mount("/static", StaticFiles(directory=str(_pkg_dir / "static")), name="static")
 
-    @app.get("/", response_class=HTMLResponse)
+    verify_panel = _make_verify_panel(api_key)
+
+    def _set_token_cookie(request: Request, response: Response):
+        """If authed via ?token= param, set cookie so subsequent requests don't need it."""
+        token = request.query_params.get("token")
+        if token and api_key and token == api_key:
+            response.set_cookie("intern_token", token, httponly=True, samesite="lax")
+
+    @app.get("/", response_class=HTMLResponse, dependencies=[Depends(verify_panel)])
     def project_list_page(request: Request):
         projects = _db.list_projects()
-        return templates.TemplateResponse(request, "project_list.html",
-                                          {"projects": projects})
+        response = templates.TemplateResponse(request, "project_list.html",
+                                              {"projects": projects})
+        _set_token_cookie(request, response)
+        return response
 
-    @app.get("/project/{name}", response_class=HTMLResponse)
+    @app.get("/project/{name}", response_class=HTMLResponse, dependencies=[Depends(verify_panel)])
     def run_list_page(request: Request, name: str, status: str | None = None):
         project = _db.get_project_by_name(name)
         runs = _db.list_runs(project["id"], status=status) if project else []
-        return templates.TemplateResponse(request, "run_list.html", {
+        response = templates.TemplateResponse(request, "run_list.html", {
             "project": project, "runs": runs,
             "status_filter": status,
         })
+        _set_token_cookie(request, response)
+        return response
 
-    @app.get("/run/{run_id}", response_class=HTMLResponse)
+    @app.get("/run/{run_id}", response_class=HTMLResponse, dependencies=[Depends(verify_panel)])
     def run_detail_page(request: Request, run_id: str, log_level: str | None = None):
         run = _db.get_run(run_id)
         metas = _db.get_metric_metas(run_id)
@@ -71,16 +95,15 @@ def create_app(db_path: str | None = None, api_key: str = "") -> FastAPI:
             series = _db.get_metric_series(run_id, meta["key"])
             metrics_data[meta["key"]] = series
         logs = _db.get_logs(run_id, level=log_level, limit=100)
-        return templates.TemplateResponse(request, "run_detail.html", {
+        response = templates.TemplateResponse(request, "run_detail.html", {
             "run": run, "metas": metas,
             "metrics_data": metrics_data, "logs": logs,
             "config_json": _json.dumps(run["config"], indent=2),
         })
+        _set_token_cookie(request, response)
+        return response
 
-    # Panel delete actions (no auth — panel is already accessible without auth)
-    from fastapi.responses import Response
-
-    @app.delete("/panel/runs/{run_id}")
+    @app.delete("/panel/runs/{run_id}", dependencies=[Depends(verify_panel)])
     def panel_delete_run(run_id: str):
         run = _db.get_run(run_id)
         if not run:
@@ -88,7 +111,7 @@ def create_app(db_path: str | None = None, api_key: str = "") -> FastAPI:
         _db.delete_run(run_id)
         return Response(status_code=200)
 
-    @app.delete("/panel/projects/{project}")
+    @app.delete("/panel/projects/{project}", dependencies=[Depends(verify_panel)])
     def panel_delete_project(project: str):
         p = _db.get_project_by_name(project)
         if not p:
@@ -133,7 +156,10 @@ def main():
 
     app = create_app(db_path=db_path, api_key=api_key)
     print(f"intern-server | port={port} data_dir={data_dir} auth={'on' if api_key else 'off'}")
-    print(f"  Web Panel:  http://localhost:{port}/")
+    panel_url = f"http://localhost:{port}/"
+    if api_key:
+        panel_url += f"?token={api_key}"
+    print(f"  Web Panel:  {panel_url}")
     print(f"  MCP (HTTP): http://localhost:{port}/mcp/  (recommended, type: http)")
     print(f"  MCP (SSE):  http://localhost:{port}/mcp/sse  (legacy, type: sse)")
     uvicorn.run(app, host=args.host, port=port)
