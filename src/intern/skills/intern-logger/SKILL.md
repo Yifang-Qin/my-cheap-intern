@@ -19,7 +19,7 @@ Dependencies: `requests`, `pydantic` only. No heavy ML framework dependency.
 | Variable | Default | Description |
 |---|---|---|
 | `INTERN_SERVER` | `http://localhost:8080` | Server URL |
-| `INTERN_API_KEY` | `""` | Auth token |
+| `INTERN_API_KEY` | *(required)* | Auth token (printed at server startup) |
 
 These are fallbacks — explicit arguments in `init()` take precedence.
 

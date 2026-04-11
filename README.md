@@ -55,7 +55,7 @@ This installs Claude Code skills (`intern-logger`, `intern-reader`) and writes M
 
 | CLI Flag | Env Variable | Default | Description |
 |---|---|---|---|
-| `--key` | `INTERN_API_KEY` | *(empty, no auth)* | API key for authentication |
+| `--key` | `INTERN_API_KEY` | *(auto-generated)* | API key for authentication |
 | `--port` | `INTERN_PORT` | `8080` | Server port |
 | `--data-dir` | `INTERN_DATA_DIR` | `~/.intern` | SQLite database directory |
 | `--host` | — | `0.0.0.0` | Bind address |
