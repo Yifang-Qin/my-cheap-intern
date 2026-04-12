@@ -245,26 +245,26 @@ def search_runs(project_id: str, query: str | None = None, tags: list[str] | Non
 
 def delete_run(run_id: str):
     conn = get_connection()
-    conn.execute("DELETE FROM metric_points WHERE run_id = ?", (run_id,))
-    conn.execute("DELETE FROM metric_meta WHERE run_id = ?", (run_id,))
-    conn.execute("DELETE FROM log_entries WHERE run_id = ?", (run_id,))
-    conn.execute("DELETE FROM runs WHERE id = ?", (run_id,))
-    conn.commit()
+    with conn:
+        conn.execute("DELETE FROM metric_points WHERE run_id = ?", (run_id,))
+        conn.execute("DELETE FROM metric_meta WHERE run_id = ?", (run_id,))
+        conn.execute("DELETE FROM log_entries WHERE run_id = ?", (run_id,))
+        conn.execute("DELETE FROM runs WHERE id = ?", (run_id,))
     conn.close()
 
 
 def delete_project(project_id: str):
     conn = get_connection()
-    run_ids = [r["id"] for r in conn.execute(
-        "SELECT id FROM runs WHERE project_id = ?", (project_id,)
-    ).fetchall()]
-    for rid in run_ids:
-        conn.execute("DELETE FROM metric_points WHERE run_id = ?", (rid,))
-        conn.execute("DELETE FROM metric_meta WHERE run_id = ?", (rid,))
-        conn.execute("DELETE FROM log_entries WHERE run_id = ?", (rid,))
-    conn.execute("DELETE FROM runs WHERE project_id = ?", (project_id,))
-    conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
-    conn.commit()
+    with conn:
+        run_ids = [r["id"] for r in conn.execute(
+            "SELECT id FROM runs WHERE project_id = ?", (project_id,)
+        ).fetchall()]
+        for rid in run_ids:
+            conn.execute("DELETE FROM metric_points WHERE run_id = ?", (rid,))
+            conn.execute("DELETE FROM metric_meta WHERE run_id = ?", (rid,))
+            conn.execute("DELETE FROM log_entries WHERE run_id = ?", (rid,))
+        conn.execute("DELETE FROM runs WHERE project_id = ?", (project_id,))
+        conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
     conn.close()
 
 
