@@ -52,3 +52,23 @@ def test_run_detail_page(client, sample_run):
     assert "loss" in resp.text
     assert "0.001" in resp.text  # config lr value
     assert "started training" in resp.text
+
+
+def test_run_list_search_by_name(client, sample_run):
+    resp = client.get(f"/project/test-project?q=test-run&token={TOKEN}")
+    assert resp.status_code == 200
+    assert "test-run" in resp.text
+
+
+def test_run_list_search_no_match(client, sample_run):
+    resp = client.get(f"/project/test-project?q=nonexistent&token={TOKEN}")
+    assert resp.status_code == 200
+    assert "test-run" not in resp.text
+    assert "No runs found" in resp.text
+
+
+def test_run_list_search_with_status_filter(client, sample_run):
+    # search matches name but status doesn't match -> no results
+    resp = client.get(f"/project/test-project?q=test-run&status=finished&token={TOKEN}")
+    assert resp.status_code == 200
+    assert "No runs found" in resp.text

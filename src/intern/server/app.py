@@ -76,12 +76,17 @@ def create_app(db_path: str | None = None, api_key: str = "") -> FastAPI:
         return response
 
     @app.get("/project/{name}", response_class=HTMLResponse, dependencies=[Depends(verify_panel)])
-    def run_list_page(request: Request, name: str, status: str | None = None):
+    def run_list_page(request: Request, name: str, status: str | None = None, q: str | None = None):
         project = _db.get_project_by_name(name)
-        runs = _db.list_runs(project["id"], status=status) if project else []
+        if not project:
+            runs = []
+        elif q:
+            runs = _db.search_runs(project["id"], query=q, status=status)
+        else:
+            runs = _db.list_runs(project["id"], status=status)
         response = templates.TemplateResponse(request, "run_list.html", {
             "project": project, "runs": runs,
-            "status_filter": status,
+            "status_filter": status, "search_query": q or "",
         })
         _set_token_cookie(request, response)
         return response

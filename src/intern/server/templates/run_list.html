@@ -4,8 +4,12 @@
 <h1>{{ project.name }}</h1>
 
 <div class="filters">
+    <input type="text" name="q" value="{{ search_query }}" placeholder="Search by name, tag, or config..."
+           hx-get="/project/{{ project.name }}" hx-target="body"
+           hx-include="[name='status']" hx-push-url="true"
+           hx-trigger="keyup changed delay:300ms" style="flex:1; min-width:200px;">
     <select hx-get="/project/{{ project.name }}" hx-target="body" name="status"
-            hx-include="[name='status']" hx-push-url="true">
+            hx-include="[name='q']" hx-push-url="true">
         <option value="">All statuses</option>
         <option value="running" {% if status_filter == 'running' %}selected{% endif %}>Running</option>
         <option value="finished" {% if status_filter == 'finished' %}selected{% endif %}>Finished</option>
