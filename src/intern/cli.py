@@ -81,6 +81,55 @@ def cmd_init(args):
     print("done. Your AI assistant now knows how to use intern.")
 
 
+def cmd_uninit(args):
+    cwd = Path.cwd()
+
+    # 1. Remove skills
+    skills_dir = cwd / ".claude" / "skills"
+    removed_any_skill = False
+    if skills_dir.exists():
+        for skill_dir in sorted(skills_dir.glob("intern-*")):
+            shutil.rmtree(skill_dir)
+            print(f"  removed {skill_dir.relative_to(cwd)}")
+            removed_any_skill = True
+    if not removed_any_skill:
+        print("  skip skills (none found)")
+
+    # 2. Remove CLAUDE.md section
+    claude_md = cwd / "CLAUDE.md"
+    if claude_md.exists():
+        content = claude_md.read_text()
+        if MARKER_BEGIN in content:
+            pattern = r"\n?" + re.escape(MARKER_BEGIN) + r".*?" + re.escape(MARKER_END) + r"\n?"
+            cleaned = re.sub(pattern, "\n", content, flags=re.DOTALL).strip() + "\n"
+            claude_md.write_text(cleaned)
+            print("  removed intern section from CLAUDE.md")
+        else:
+            print("  skip CLAUDE.md (no intern section)")
+    else:
+        print("  skip CLAUDE.md (file not found)")
+
+    # 3. Remove .mcp.json entry
+    mcp_json = cwd / ".mcp.json"
+    if mcp_json.exists():
+        mcp_data = json.loads(mcp_json.read_text())
+        servers = mcp_data.get("mcpServers", {})
+        if MCP_SERVER_KEY in servers:
+            del servers[MCP_SERVER_KEY]
+            if servers:
+                mcp_json.write_text(json.dumps(mcp_data, indent=2) + "\n")
+            else:
+                mcp_json.unlink()
+                print("  removed .mcp.json (no servers left)")
+            print("  removed intern from .mcp.json") if servers else None
+        else:
+            print("  skip .mcp.json (no intern entry)")
+    else:
+        print("  skip .mcp.json (file not found)")
+
+    print("done. Intern integration removed from this project.")
+
+
 def main():
     parser = argparse.ArgumentParser(prog="intern-cli")
     sub = parser.add_subparsers(dest="command")
@@ -89,6 +138,9 @@ def main():
     init_parser.add_argument("--server", default="http://localhost:8080", help="Intern server URL (default: http://localhost:8080)")
     init_parser.add_argument("--key", default=None, help="API key. If omitted, uses ${INTERN_API_KEY} env var expansion at runtime")
     init_parser.set_defaults(func=cmd_init)
+
+    uninit_parser = sub.add_parser("uninit", help="Remove intern skills, CLAUDE.md section, and MCP config from this project")
+    uninit_parser.set_defaults(func=cmd_uninit)
 
     args = parser.parse_args()
     if not hasattr(args, "func"):
